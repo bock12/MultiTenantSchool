@@ -1,0 +1,8 @@
+{
+  "name": "EduNexus - Advanced School Management System",
+  "description": "A comprehensive school management platform featuring analytics, academic tracking, admissions portal, financial management, and AI-powered insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
