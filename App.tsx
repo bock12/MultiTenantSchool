@@ -32,7 +32,7 @@ import AIInsights from './components/AIInsights';
 import MobileSync from './components/MobileSync';
 import StudentManagement from './components/StudentManagement';
 import ClassroomManagement from './components/ClassroomManagement';
-import { AdmissionStatus, AdmissionApplication, Student, Subject, Classroom, Staff, Assessment, SyllabusUnit, Tenant } from './types';
+import { AdmissionStatus, AdmissionApplication, Student, Subject, Classroom, Staff, Assessment, SyllabusUnit, Tenant, AcademicStream } from './types';
 
 // Multi-Tenant Mock Data
 const INITIAL_TENANTS: Tenant[] = [
@@ -42,30 +42,31 @@ const INITIAL_TENANTS: Tenant[] = [
 ];
 
 const INITIAL_STAFF: Staff[] = [
-  { id: 'STF1', tenantId: 'T1', name: 'Dr. Alan Grant', role: 'Senior Teacher', department: 'Science', joiningDate: '2020-01-15', salary: 6500 },
-  { id: 'STF2', tenantId: 'T1', name: 'Ms. Ellie Sattler', role: 'Senior Teacher', department: 'Humanities', joiningDate: '2021-03-22', salary: 5200 },
-  { id: 'STF3', tenantId: 'T2', name: 'Mr. Ian Malcolm', role: 'Math Specialist', department: 'STEM', joiningDate: '2022-08-10', salary: 4800 },
+  { id: 'STF1', tenantId: 'T1', name: 'Dr. Alan Grant', role: 'Senior Teacher', department: 'SCIENCE', joiningDate: '2020-01-15', salary: 6500, isHOD: true },
+  { id: 'STF2', tenantId: 'T1', name: 'Ms. Ellie Sattler', role: 'Senior Teacher', department: 'ART', joiningDate: '2021-03-22', salary: 5200, isHOD: true },
+  { id: 'STF3', tenantId: 'T2', name: 'Mr. Ian Malcolm', role: 'Math Specialist', department: 'SCIENCE', joiningDate: '2022-08-10', salary: 4800, isHOD: false },
+  { id: 'STF4', tenantId: 'T1', name: 'Mrs. Claire Dearing', role: 'Admin Coordinator', department: 'COMMERCIAL', joiningDate: '2019-11-05', salary: 4500, isHOD: true },
 ];
 
 const INITIAL_STUDENTS: Student[] = [
-  { id: 'S1', tenantId: 'T1', name: 'Alexander Wright', grade: 'Grade 10', section: 'A', admissionNo: 'ADM-2024-001', gender: 'M', parentName: 'Robert Wright', status: 'ACTIVE', advisor: 'Dr. Alan Grant' },
-  { id: 'S2', tenantId: 'T2', name: 'Sophia Martinez', grade: 'Grade 10', section: 'B', admissionNo: 'ADM-2024-002', gender: 'F', parentName: 'Elena Martinez', status: 'ACTIVE', advisor: 'Mr. Ian Malcolm' },
+  { id: 'S1', tenantId: 'T1', name: 'Alexander Wright', grade: 'SSS1', section: '1', admissionNo: 'ADM-2024-001', gender: 'M', parentName: 'Robert Wright', status: 'ACTIVE', advisor: 'Dr. Alan Grant', stream: 'SCIENCE' },
+  { id: 'S2', tenantId: 'T2', name: 'Sophia Martinez', grade: 'Grade 10', section: 'B', admissionNo: 'ADM-2024-002', gender: 'F', parentName: 'Elena Martinez', status: 'ACTIVE', advisor: 'Mr. Ian Malcolm', stream: 'GENERAL' },
 ];
 
 const INITIAL_SUBJECTS: Subject[] = [
   { 
-    id: 'SUB1', tenantId: 'T1', name: 'Mathematics', grade: 'Grade 10', teacher: 'Dr. Alan Grant', progress: 40,
+    id: 'SUB1', tenantId: 'T1', name: 'Mathematics', grade: 'SSS1', teacher: 'Dr. Alan Grant', teacherId: 'STF1', progress: 40,
     syllabus: [
       { id: 'U1', title: 'Algebra Foundations', description: 'Variables, expressions, and linear equations.', status: 'COMPLETED', order: 1 },
       { id: 'U2', title: 'Quadratic Equations', description: 'Solving quadratics.', status: 'COMPLETED', order: 2 },
     ]
   },
-  { id: 'SUB2', tenantId: 'T2', name: 'Science', grade: 'Grade 10', teacher: 'Mr. Ian Malcolm', progress: 0, assessments: [], syllabus: [] },
+  { id: 'SUB2', tenantId: 'T2', name: 'Science', grade: 'Grade 10', teacher: 'Mr. Ian Malcolm', teacherId: 'STF3', progress: 0, assessments: [], syllabus: [] },
 ];
 
 const INITIAL_CLASSROOMS: Classroom[] = [
-  { id: 'C1', tenantId: 'T1', grade: 'Grade 10', section: 'A', classTeacherId: 'STF1', roomNumber: '101', capacity: 30 },
-  { id: 'C2', tenantId: 'T2', grade: 'Grade 10', section: 'B', classTeacherId: 'STF3', roomNumber: '102', capacity: 30 },
+  { id: 'C1', tenantId: 'T1', grade: 'SSS1', section: '1', classTeacherId: 'STF1', roomNumber: '101', capacity: 30, stream: 'SCIENCE', schoolSection: 'SENIOR' },
+  { id: 'C2', tenantId: 'T2', grade: 'Grade 10', section: 'B', classTeacherId: 'STF3', roomNumber: '102', capacity: 30, stream: 'GENERAL' },
 ];
 
 export type View = 'DASHBOARD' | 'STUDENTS' | 'ACADEMICS' | 'FINANCE' | 'ADMISSIONS' | 'STAFF' | 'LIBRARY' | 'AI_INSIGHTS' | 'MOBILE_SYNC' | 'CLASSROOMS';
@@ -93,33 +94,53 @@ const App: React.FC = () => {
     };
   }, [activeTenant, students, staff, subjects, classrooms, admissions]);
 
-  const handleAdmissionStatusUpdate = (appId: string, newStatus: AdmissionStatus) => {
+  const handleAdmissionStatusUpdate = (
+    appId: string, 
+    newStatus: AdmissionStatus, 
+    enrollmentData?: { grade: string; section: string; stream?: AcademicStream }
+  ) => {
     if (!activeTenant) return;
     const app = admissions.find(a => a.id === appId);
     if (!app) return;
 
     if (newStatus === AdmissionStatus.ACCEPTED && app.status === AdmissionStatus.ACCEPTED) return;
 
-    if (newStatus === AdmissionStatus.ACCEPTED) {
+    if (newStatus === AdmissionStatus.ACCEPTED && enrollmentData) {
+      const studentId = `S${Date.now()}`;
       const newStudent: Student = {
-        id: `S${Date.now()}`,
+        id: studentId,
         tenantId: activeTenant.id,
+        applicationId: app.id,
         name: app.studentName,
-        grade: app.gradeApplying,
-        section: 'A',
+        grade: enrollmentData.grade,
+        section: enrollmentData.section,
+        stream: enrollmentData.stream,
         admissionNo: `ADM-2024-${Math.floor(100 + Math.random() * 899)}`,
         gender: app.gender || 'O',
         parentName: app.parentName,
         status: 'ACTIVE',
+        profilePicture: app.profilePicture,
+        documents: app.documents,
+        dob: app.dob,
+        bloodGroup: app.bloodGroup,
+        parentPhone: app.parentPhone,
+        address: app.address,
+        medicalNotes: app.medicalNotes
       };
       setStudents(prev => [newStudent, ...prev]);
+      
+      // Update application to link it back to the student
+      setAdmissions(prev => prev.map(a => 
+        a.id === appId ? { ...a, status: newStatus, studentId: studentId } : a
+      ));
+
       setNotification(`${app.studentName} enrolled at ${activeTenant.name}!`);
       setTimeout(() => setNotification(null), 4000);
+    } else {
+      setAdmissions(prev => prev.map(a => 
+        a.id === appId ? { ...a, status: newStatus } : a
+      ));
     }
-
-    setAdmissions(prev => prev.map(a => 
-      a.id === appId ? { ...a, status: newStatus } : a
-    ));
   };
 
   const updateSyllabus = (subjectId: string, syllabus: SyllabusUnit[]) => {
@@ -197,9 +218,9 @@ const App: React.FC = () => {
       case 'DASHBOARD':
         return <PrincipalDashboard />;
       case 'STUDENTS':
-        return <StudentManagement students={tenantData.students} setStudents={setStudents} activeTenant={activeTenant} />;
+        return <StudentManagement students={tenantData.students} setStudents={setStudents} activeTenant={activeTenant} admissions={tenantData.admissions} />;
       case 'CLASSROOMS':
-        return <ClassroomManagement classrooms={tenantData.classrooms} students={tenantData.students} subjects={tenantData.subjects} staff={tenantData.staff} />;
+        return <ClassroomManagement classrooms={tenantData.classrooms} setClassrooms={setClassrooms} students={tenantData.students} subjects={tenantData.subjects} staff={tenantData.staff} activeTenant={activeTenant} />;
       case 'ADMISSIONS':
         return (
           <AdmissionsPortal 
@@ -225,7 +246,7 @@ const App: React.FC = () => {
       case 'FINANCE':
         return <FinanceManagement />;
       case 'STAFF':
-        return <StaffManagement staff={tenantData.staff} />;
+        return <StaffManagement staff={tenantData.staff} setStaff={setStaff} />;
       case 'LIBRARY':
         return <LibraryManagement />;
       case 'AI_INSIGHTS':

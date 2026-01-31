@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -33,9 +33,14 @@ import {
   Clock,
   IdCard,
   Edit2,
-  Printer
+  Printer,
+  ChevronRight,
+  Fingerprint,
+  ExternalLink,
+  ShieldCheck,
+  MapPinned
 } from 'lucide-react';
-import { Student, StudentDocument, DocumentCategory, Tenant } from '../types';
+import { Student, StudentDocument, DocumentCategory, Tenant, AcademicStream, AdmissionApplication } from '../types';
 import IDCardGenerator from './IDCardGenerator';
 
 const MOCK_TEACHERS = [
@@ -48,7 +53,8 @@ const MOCK_TEACHERS = [
 ];
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const SECTIONS = ['A', 'B', 'C', 'D'];
+const SECTIONS = ['1', '2', '3', '4', 'A', 'B', 'C', 'D'];
+const STREAMS: AcademicStream[] = ['SCIENCE', 'ART', 'COMMERCIAL', 'GENERAL'];
 
 const DOCUMENT_CATEGORIES: { value: DocumentCategory; label: string; color: string }[] = [
   { value: 'ACADEMIC', label: 'Academic Record', color: 'indigo' },
@@ -61,15 +67,16 @@ const DOCUMENT_CATEGORIES: { value: DocumentCategory; label: string; color: stri
 interface StudentManagementProps {
   students: Student[];
   setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
-  /* Fixed: Added activeTenant prop */
   activeTenant: Tenant;
+  admissions: AdmissionApplication[];
 }
 
-const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStudents, activeTenant }) => {
+const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStudents, activeTenant, admissions }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('All Grades');
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [viewingApplication, setViewingApplication] = useState<AdmissionApplication | null>(null);
   const [isEditingAdvisor, setIsEditingAdvisor] = useState(false);
   const [isEditingClass, setIsEditingClass] = useState(false);
   const [showIDCard, setShowIDCard] = useState(false);
@@ -77,13 +84,20 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
+  const generateAdmissionNumber = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(1000 + Math.random() * 9000);
+    return `ADM-${year}-${random}`;
+  };
+
   const [newStudentForm, setNewStudentForm] = useState({
     name: '',
     dob: '',
     gender: 'O' as 'M' | 'F' | 'O',
     bloodGroup: '',
     grade: 'Grade 9',
-    section: 'A',
+    section: '1',
+    stream: 'GENERAL' as AcademicStream,
     parentName: '',
     parentPhone: '',
     parentEmail: '',
@@ -94,8 +108,17 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
     emergencyContactPhone: '',
     advisor: '',
     profilePicture: '',
-    documents: [] as StudentDocument[]
+    documents: [] as StudentDocument[],
+    admissionNo: ''
   });
+
+  const handleOpenAddModal = () => {
+    setNewStudentForm(prev => ({
+      ...prev,
+      admissionNo: generateAdmissionNumber()
+    }));
+    setIsAddingStudent(true);
+  };
 
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,7 +134,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      Array.from(files).forEach(file => {
+      (Array.from(files) as File[]).forEach(file => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const newDoc: StudentDocument = {
@@ -119,7 +142,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
             type: file.type,
             size: (file.size / 1024).toFixed(1) + ' KB',
             url: reader.result as string,
-            category: 'ACADEMIC', // Default category
+            category: 'ACADEMIC',
             uploadDate: new Date().toISOString().split('T')[0]
           };
           setNewStudentForm(prev => ({ ...prev, documents: [...prev.documents, newDoc] }));
@@ -154,19 +177,18 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
     setIsEditingAdvisor(false);
   };
 
-  const handleUpdateClass = (grade: string, section: string) => {
+  const handleUpdateClass = (grade: string, section: string, stream?: AcademicStream) => {
     if (!selectedStudent) return;
     const updatedStudents = students.map(s => 
-      s.id === selectedStudent.id ? { ...s, grade, section } : s
+      s.id === selectedStudent.id ? { ...s, grade, section, stream } : s
     );
     setStudents(updatedStudents);
-    setSelectedStudent({ ...selectedStudent, grade, section });
+    setSelectedStudent({ ...selectedStudent, grade, section, stream });
     setIsEditingClass(false);
   };
 
   const handleAddStudent = (e: React.FormEvent) => {
     e.preventDefault();
-    /* Fixed: Added tenantId to the student object */
     const student: Student = {
       id: `S${Date.now()}`,
       tenantId: activeTenant.id,
@@ -176,6 +198,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
       bloodGroup: newStudentForm.bloodGroup,
       grade: newStudentForm.grade,
       section: newStudentForm.section,
+      stream: newStudentForm.stream,
       parentName: newStudentForm.parentName,
       parentPhone: newStudentForm.parentPhone,
       parentEmail: newStudentForm.parentEmail,
@@ -186,7 +209,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
       emergencyContactPhone: newStudentForm.emergencyContactPhone,
       profilePicture: newStudentForm.profilePicture,
       documents: newStudentForm.documents,
-      admissionNo: `ADM-DIR-${Math.floor(1000 + Math.random() * 9000)}`,
+      admissionNo: newStudentForm.admissionNo,
       status: 'ACTIVE',
       advisor: newStudentForm.advisor || undefined
     };
@@ -199,10 +222,11 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   const resetForm = () => {
     setNewStudentForm({
       name: '', dob: '', gender: 'O', bloodGroup: '', 
-      grade: 'Grade 9', section: 'A', parentName: '', 
+      grade: 'Grade 9', section: '1', stream: 'GENERAL', parentName: '', 
       parentPhone: '', parentEmail: '', address: '', 
       medicalNotes: '', allergies: '', emergencyContactName: '', 
-      emergencyContactPhone: '', advisor: '', profilePicture: '', documents: []
+      emergencyContactPhone: '', advisor: '', profilePicture: '', documents: [],
+      admissionNo: ''
     });
   };
 
@@ -213,7 +237,20 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
     return matchesSearch && matchesGrade;
   });
 
-  const grades = ['All Grades', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+  const grades = ['All Grades', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3', 'Grade 10', 'Grade 11', 'Grade 12'];
+
+  const isSeniorGrade = (grade: string) => {
+    return grade.startsWith('SSS') || grade.includes('10') || grade.includes('11') || grade.includes('12');
+  };
+
+  const handleViewApplication = (student: Student) => {
+    const app = admissions.find(a => a.id === student.applicationId || a.studentId === student.id);
+    if (app) {
+      setViewingApplication(app);
+    } else {
+      alert("No original admission application found for this student record.");
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 animate-in fade-in duration-500">
@@ -227,7 +264,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
             <Download size={18} /> Export List
           </button>
           <button 
-            onClick={() => setIsAddingStudent(true)}
+            onClick={handleOpenAddModal}
             className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all"
           >
             <UserPlus size={18} /> Add Student
@@ -274,7 +311,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
               <tr>
                 <th className="px-6 py-4">Student</th>
                 <th className="px-6 py-4">Admission ID</th>
-                <th className="px-6 py-4">Grade / Section</th>
+                <th className="px-6 py-4">Placement</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Action</th>
               </tr>
@@ -304,7 +341,12 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                     <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200">{student.admissionNo}</span>
                   </td>
                   <td className="px-6 py-4" onClick={() => { setSelectedStudent(student); setIsEditingAdvisor(false); setIsEditingClass(false); }}>
-                    <span className="text-sm font-semibold text-slate-700">{student.grade} - {student.section}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-700">{student.grade} - {student.section}</span>
+                      {student.stream && student.stream !== 'GENERAL' && (
+                        <span className="text-[10px] font-black text-indigo-500 uppercase">{student.stream}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4" onClick={() => { setSelectedStudent(student); setIsEditingAdvisor(false); setIsEditingClass(false); }}>
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${student.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
@@ -367,63 +409,94 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                    )}
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 tracking-tight">{selectedStudent.name}</h4>
+                <div className="flex items-center gap-2 mt-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <Fingerprint size={14} className="text-slate-400" />
+                  <span className="text-xs font-mono font-bold text-slate-600">{selectedStudent.admissionNo}</span>
+                </div>
                 
                 {isEditingClass ? (
-                  <div className="mt-2 flex flex-col items-center gap-3 animate-in fade-in duration-200">
-                    <div className="flex gap-2">
-                      <select 
-                        defaultValue={selectedStudent.grade} 
-                        id="edit-grade-select"
-                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                      >
-                        {grades.filter(g => g !== 'All Grades').map(g => <option key={g} value={g}>{g}</option>)}
-                      </select>
-                      <select 
-                        defaultValue={selectedStudent.section} 
-                        id="edit-section-select"
-                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
-                      >
-                        {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                  <div className="mt-6 w-full bg-slate-50 p-6 rounded-[2rem] border border-slate-200 animate-in fade-in duration-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 text-left">Academic Placement Reassignment</p>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <FormGroup label="Grade Level">
+                        <select 
+                          defaultValue={selectedStudent.grade} 
+                          id="edit-grade-select"
+                          onChange={(e) => {
+                             const streamSelect = document.getElementById('edit-stream-container');
+                             if (streamSelect) {
+                               streamSelect.style.display = isSeniorGrade(e.target.value) ? 'block' : 'none';
+                             }
+                          }}
+                        >
+                          {grades.filter(g => g !== 'All Grades').map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </FormGroup>
+                      <FormGroup label="Section No.">
+                        <select defaultValue={selectedStudent.section} id="edit-section-select">
+                          {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </FormGroup>
+                    </div>
+                    <div id="edit-stream-container" className="mb-6" style={{ display: isSeniorGrade(selectedStudent.grade) ? 'block' : 'none' }}>
+                      <FormGroup label="Academic Stream">
+                        <select defaultValue={selectedStudent.stream || 'GENERAL'} id="edit-stream-select">
+                           {STREAMS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </FormGroup>
                     </div>
                     <div className="flex gap-2">
                       <button 
                         onClick={() => {
                           const g = (document.getElementById('edit-grade-select') as HTMLSelectElement).value;
                           const s = (document.getElementById('edit-section-select') as HTMLSelectElement).value;
-                          handleUpdateClass(g, s);
+                          const stream = isSeniorGrade(g) ? (document.getElementById('edit-stream-select') as HTMLSelectElement).value as AcademicStream : 'GENERAL';
+                          handleUpdateClass(g, s, stream);
                         }}
-                        className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100"
+                        className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100"
                       >
                         Apply Changes
                       </button>
                       <button 
                         onClick={() => setIsEditingClass(false)}
-                        className="px-4 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                        className="px-6 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest"
                       >
                         Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 mt-1 mb-4">
-                    <p className="text-indigo-600 font-bold">{selectedStudent.grade} • Section {selectedStudent.section}</p>
-                    <button 
-                      onClick={() => setIsEditingClass(true)}
-                      className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                      title="Reassign Grade/Section"
-                    >
-                      <Edit2 size={12} />
-                    </button>
+                  <div className="flex flex-col items-center gap-2 mt-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-indigo-600 font-bold">{selectedStudent.grade} • Section {selectedStudent.section}</p>
+                      <button 
+                        onClick={() => setIsEditingClass(true)}
+                        className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                        title="Reassign Placement"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                    {selectedStudent.stream && selectedStudent.stream !== 'GENERAL' && (
+                       <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg border border-indigo-100">{selectedStudent.stream} TRACK</span>
+                    )}
                   </div>
                 )}
 
-                <button 
-                  onClick={() => setShowIDCard(true)}
-                  className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase hover:bg-indigo-700 transition-all border border-indigo-500 shadow-lg shadow-indigo-100"
-                >
-                  <IdCard size={16} /> Generate ID Card
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowIDCard(true)}
+                    className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-xs uppercase hover:bg-indigo-700 transition-all border border-indigo-500 shadow-lg shadow-indigo-100"
+                  >
+                    <IdCard size={16} /> ID Card
+                  </button>
+                  <button 
+                    onClick={() => handleViewApplication(selectedStudent)}
+                    className="flex items-center gap-2 px-6 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-xs uppercase hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    <ExternalLink size={16} /> Application
+                  </button>
+                </div>
               </div>
 
               {/* Health Records Section */}
@@ -511,7 +584,6 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
               </div>
               
               <div className="grid grid-cols-2 gap-6">
-                <ProfileStat label="Admission No" value={selectedStudent.admissionNo} />
                 <ProfileStat label="Parent Name" value={selectedStudent.parentName} />
                 {selectedStudent.dob && <ProfileStat label="Date of Birth" value={selectedStudent.dob} />}
                 {selectedStudent.parentPhone && <ProfileStat label="Contact Phone" value={selectedStudent.parentPhone} />}
@@ -521,7 +593,73 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
         </div>
       )}
 
-      {/* ID Card Generator Modal Overlay */}
+      {/* Source Application Modal */}
+      {viewingApplication && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setViewingApplication(null)}></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/30 shrink-0">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-600 rounded-2xl text-white">
+                    <FileText size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Source Application</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Reference: {viewingApplication.id}</p>
+                  </div>
+               </div>
+               <button onClick={() => setViewingApplication(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                 <X size={28} />
+               </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10">
+               <div className="flex items-center gap-6">
+                 <div className="w-24 h-24 rounded-3xl bg-slate-100 overflow-hidden shadow-lg border-4 border-slate-50 shrink-0">
+                    {viewingApplication.profilePicture ? <img src={viewingApplication.profilePicture} className="w-full h-full object-cover" /> : <User size={40} className="text-slate-300 mx-auto mt-6" />}
+                 </div>
+                 <div>
+                    <h4 className="text-2xl font-black text-slate-900 leading-tight">{viewingApplication.studentName}</h4>
+                    <p className="text-indigo-600 font-bold uppercase text-xs tracking-widest mt-1">Submitted on {viewingApplication.dateApplied}</p>
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <DetailBox label="Legal Name" value={viewingApplication.studentName} icon={<User size={14} />} />
+                 <DetailBox label="Date of Birth" value={viewingApplication.dob || 'Not Provided'} icon={<Calendar size={14} />} />
+                 <DetailBox label="Grade Applied" value={viewingApplication.gradeApplying} icon={<ShieldCheck size={14} />} />
+                 <DetailBox label="Gender" value={viewingApplication.gender === 'M' ? 'Male' : viewingApplication.gender === 'F' ? 'Female' : 'Other'} icon={<User size={14} />} />
+                 <DetailBox label="Parent/Guardian" value={viewingApplication.parentName} icon={<UserCog size={14} />} />
+                 <DetailBox label="Contact Phone" value={viewingApplication.parentPhone || 'Not Provided'} icon={<Phone size={14} />} />
+                 <DetailBox label="Email Address" value={viewingApplication.contactEmail} icon={<Mail size={14} />} className="md:col-span-2" />
+                 <DetailBox label="Home Address" value={viewingApplication.address || 'Not Provided'} icon={<MapPinned size={14} />} className="md:col-span-2" />
+               </div>
+
+               {viewingApplication.documents && viewingApplication.documents.length > 0 && (
+                 <div className="space-y-4">
+                    <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                       <Paperclip size={14} /> Attached Application Documents
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       {viewingApplication.documents.map((doc, idx) => (
+                         <div key={idx} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3">
+                            <FileText size={20} className="text-indigo-400" />
+                            <div className="min-w-0">
+                               <p className="text-xs font-bold text-slate-800 truncate">{doc.name}</p>
+                               <p className="text-[8px] text-slate-400 font-black uppercase">{doc.size} • {doc.type.split('/')[1]?.toUpperCase()}</p>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+               )}
+            </div>
+            <div className="p-8 border-t border-slate-100 bg-white">
+               <button onClick={() => setViewingApplication(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-800 shadow-xl transition-all">Close Application View</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showIDCard && selectedStudent && (
         <IDCardGenerator 
           type="STUDENT" 
@@ -585,6 +723,12 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <FormGroup label="Admission Number (Auto-generated)">
+                    <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-3.5">
+                       <Fingerprint size={18} className="text-indigo-600" />
+                       <span className="font-mono font-black text-indigo-600 tracking-tighter">{newStudentForm.admissionNo}</span>
+                    </div>
+                  </FormGroup>
                   <FormGroup label="Full Name" className="md:col-span-2">
                     <input required type="text" value={newStudentForm.name} onChange={(e) => setNewStudentForm({ ...newStudentForm, name: e.target.value })} />
                   </FormGroup>
@@ -616,9 +760,15 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                       </select>
                     </FormGroup>
                   </div>
+                  {isSeniorGrade(newStudentForm.grade) && (
+                    <FormGroup label="Academic Stream">
+                      <select value={newStudentForm.stream} onChange={(e) => setNewStudentForm({ ...newStudentForm, stream: e.target.value as AcademicStream })}>
+                        {STREAMS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </FormGroup>
+                  )}
                 </div>
 
-                {/* Health & Emergency Information Form Section */}
                 <div className="bg-rose-50/30 p-8 rounded-[2.5rem] border border-rose-100 space-y-8">
                   <h4 className="flex items-center gap-2 text-xs font-black text-rose-500 uppercase tracking-widest">
                     <HeartPulse size={16} /> Health & Emergency Records
@@ -679,7 +829,6 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                             <Trash2 size={16} />
                           </button>
                         </div>
-                        
                         <div className="space-y-1">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                             <Tag size={10} /> Category
@@ -709,7 +858,6 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
                     <input required type="text" value={newStudentForm.parentName} onChange={(e) => setNewStudentForm({ ...newStudentForm, parentName: e.target.value })} />
                   </FormGroup>
                   <FormGroup label="Contact Phone">
-                    {/* Fixed typo: changed ...newStudentPhone to ...newStudentForm */}
                     <input required type="tel" value={newStudentForm.parentPhone} onChange={(e) => setNewStudentForm({ ...newStudentForm, parentPhone: e.target.value })} />
                   </FormGroup>
                 </div>
@@ -729,28 +877,44 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   );
 };
 
-const StudentStat: React.FC<{ label: string, value: string, icon: React.ReactNode, color: string }> = ({ label, value, icon, color }) => (
-  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
-    <div className={`p-3 bg-slate-50 rounded-2xl w-fit mb-4 group-hover:bg-${color}-50 transition-all`}>{icon}</div>
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-    <h4 className="text-3xl font-black text-slate-900 leading-none">{value}</h4>
-  </div>
-);
+function StudentStat({ label, value, icon, color }: { label: string, value: string, icon: React.ReactNode, color: string }) {
+  return (
+    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
+      <div className={`p-3 bg-slate-50 rounded-2xl w-fit mb-4 group-hover:bg-${color}-50 transition-all`}>{icon}</div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+      <h4 className="text-3xl font-black text-slate-900 leading-none">{value}</h4>
+    </div>
+  );
+}
 
-const ProfileStat: React.FC<{ label: string, value: string }> = ({ label, value }) => (
-  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-    <p className="text-sm font-bold text-slate-900 truncate">{value}</p>
-  </div>
-);
+function ProfileStat({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-sm font-bold text-slate-900 truncate">{value}</p>
+    </div>
+  );
+}
 
-const FormGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
-  <div className={`space-y-2 ${className}`}>
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    {React.cloneElement(children as React.ReactElement<any>, {
-      className: `w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${(children as any).props?.className || ""}`
-    })}
-  </div>
-);
+function DetailBox({ label, value, icon, className = "" }: { label: string, value: string, icon: React.ReactNode, className?: string }) {
+  return (
+    <div className={`p-4 bg-slate-50 rounded-2xl border border-slate-100 ${className}`}>
+       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">{icon} {label}</p>
+       <p className="text-sm font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function FormGroup({ label, children, className = "" }: { label: string, children?: React.ReactElement, className?: string }) {
+  if (!children) return null;
+  return (
+    <div className={`space-y-2 ${className}`}>
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+      {React.cloneElement(children, {
+        className: `w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 ${children.props?.className || ""}`
+      } as any)}
+    </div>
+  );
+}
 
 export default StudentManagement;

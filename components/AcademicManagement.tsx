@@ -26,7 +26,13 @@ import {
   AlertCircle,
   Edit3,
   GripVertical,
-  PlayCircle
+  PlayCircle,
+  CalendarDays,
+  CalendarRange,
+  Bell,
+  MoreVertical,
+  ChevronDown,
+  CircleDot
 } from 'lucide-react';
 import { AddSubjectFormBatch } from './AddSubjectFormBatch';
 import { Subject, SyllabusUnit, Assessment, Student, SyllabusStatus, Tenant } from '../types';
@@ -37,7 +43,6 @@ interface AcademicManagementProps {
   onUpdateSyllabus: (subjectId: string, syllabus: SyllabusUnit[]) => void;
   onUpdateAssessments: (subjectId: string, assessments: Assessment[]) => void;
   students: Student[];
-  /* Fixed: Added activeTenant prop */
   activeTenant: Tenant;
 }
 
@@ -100,7 +105,6 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
 
   const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    /* Fixed: Added tenantId to the subject object */
     const subject: Subject = {
       id: `SUB-${Date.now()}`,
       tenantId: activeTenant.id,
@@ -198,7 +202,7 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
     const newUnit: SyllabusUnit = {
       id: `U-${Date.now()}`,
       title,
-      description: 'Newly added course content.',
+      description: 'Course content unit.',
       status: 'PENDING',
       order: currentSyllabus.length + 1
     };
@@ -251,7 +255,6 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
           onSubmit={(data) => {
             const newBatch: Subject[] = data.subjects.map((s: any) => ({
               id: `SUB-${Math.random().toString(36).substr(2, 9)}`,
-              /* Fixed: Added tenantId to batch items */
               tenantId: activeTenant.id,
               name: s.name,
               grade: data.grade,
@@ -280,7 +283,7 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
         <div className="flex gap-2 w-full md:w-auto">
            <button 
              onClick={() => setActiveTab(activeTab === 'SUBJECTS' ? 'CALENDAR' : 'SUBJECTS')}
-             className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center gap-2"
+             className={`flex-1 md:flex-none px-4 py-2.5 border rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'CALENDAR' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
            >
              {activeTab === 'SUBJECTS' ? <><CalendarIcon size={18} /> Calendar</> : <><BookOpen size={18} /> Subjects</>}
            </button>
@@ -362,45 +365,246 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                 </div>
               </div>
             ))}
+            {subjects.length === 0 && (
+              <div className="p-20 text-center">
+                <BookOpen size={48} className="mx-auto text-slate-200 mb-4" />
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No subjects registered yet</p>
+              </div>
+            )}
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {events.map((event) => (
-            <div key={event.id} className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 hover:shadow-md transition-shadow group relative overflow-hidden">
-              <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                event.type === 'EVENT' ? 'bg-emerald-500' : event.type === 'EXAM' ? 'bg-amber-500' : 'bg-rose-500'
-              }`}></div>
-              <div className="shrink-0 flex flex-col items-center justify-center w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-indigo-50 transition-colors">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
-                <span className="text-2xl font-black text-slate-900">{new Date(event.date).getDate()}</span>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">{event.title}</h4>
-                  <button onClick={() => removeEvent(event.id)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100">
-                    <Trash2 size={16} />
-                  </button>
+        /* Calendar view omitted for brevity, keeping same logic */
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+             <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                   <CalendarDays size={24} />
                 </div>
-                <p className="text-sm text-slate-500 font-medium mb-4 line-clamp-2">{event.description}</p>
-                <div className="flex items-center gap-4">
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-                    event.type === 'EVENT' ? 'bg-emerald-50 text-emerald-600' : event.type === 'EXAM' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
-                  }`}>
-                    {event.type}
-                  </span>
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <Clock size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">All Day</span>
+                <div>
+                   <h3 className="font-black text-slate-900 uppercase tracking-tight">Institutional Calendar</h3>
+                   <p className="text-xs text-slate-500 font-medium">Timeline of all academic and extracurricular events.</p>
+                </div>
+             </div>
+             <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Event
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="w-2 h-2 rounded-full bg-rose-500"></div> Holiday
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="w-2 h-2 rounded-full bg-amber-500"></div> Exam
+                </span>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {events.length > 0 ? events.map((event) => (
+              <div key={event.id} className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 hover:shadow-md transition-shadow group relative overflow-hidden">
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                  event.type === 'EVENT' ? 'bg-emerald-500' : event.type === 'EXAM' ? 'bg-amber-500' : 'bg-rose-500'
+                }`}></div>
+                <div className="shrink-0 flex flex-col items-center justify-center w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-indigo-50 transition-colors">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
+                  <span className="text-2xl font-black text-slate-900">{new Date(event.date).getDate()}</span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <h4 className="text-lg font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">{event.title}</h4>
+                    <button onClick={() => removeEvent(event.id)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <p className="text-sm text-slate-500 font-medium mb-4 line-clamp-2">{event.description}</p>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                      event.type === 'EVENT' ? 'bg-emerald-50 text-emerald-600' : event.type === 'EXAM' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
+                    }`}>
+                      {event.type}
+                    </span>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Clock size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(event.date).getFullYear()}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )) : (
+              <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                 <CalendarRange size={64} className="mx-auto text-slate-200 mb-6" />
+                 <h4 className="text-xl font-black text-slate-400 uppercase tracking-widest">The timeline is empty</h4>
+                 <p className="text-sm text-slate-400 mt-2 font-medium">Initialize the academic schedule by adding your first event.</p>
+                 <button 
+                  onClick={() => setIsAddingEvent(true)}
+                  className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all"
+                 >
+                   Schedule Event Now
+                 </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Grading & Assessment Modal */}
+      {/* Syllabus Management Modal - REFACTORED */}
+      {selectedSubjectForSyllabus && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForSyllabus(null)}></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                  <ListTodo size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedSubjectForSyllabus.name} Syllabus</h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedSubjectForSyllabus.grade} • {selectedSubjectForSyllabus.teacher}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedSubjectForSyllabus(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
+                 <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Curriculum Delivery Progress</p>
+                    <p className="text-3xl font-black text-indigo-600">{selectedSubjectForSyllabus.progress}%</p>
+                 </div>
+                 <div className="relative flex items-center justify-center">
+                    <svg className="w-20 h-20 transform -rotate-90">
+                      <circle cx="40" cy="40" r="34" className="stroke-slate-200" strokeWidth="6" fill="transparent" />
+                      <circle cx="40" cy="40" r="34" className="stroke-indigo-600" strokeWidth="6" fill="transparent" 
+                        strokeDasharray={2 * Math.PI * 34} 
+                        strokeDashoffset={2 * Math.PI * 34 * (1 - (selectedSubjectForSyllabus.progress / 100))}
+                        strokeLinecap="round" 
+                      />
+                    </svg>
+                    <div className="absolute flex flex-col items-center">
+                      <TrendingUp size={18} className="text-indigo-400" />
+                    </div>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Course Units / Topic Registry</h4>
+                   <button 
+                     onClick={() => addSyllabusUnit(selectedSubjectForSyllabus.id)}
+                     className="flex items-center gap-1 text-xs font-black text-indigo-600 hover:underline uppercase tracking-tighter"
+                   >
+                     <Plus size={14} /> Register Unit
+                   </button>
+                </div>
+                
+                <div className="space-y-3" onDragOver={onDragOver}>
+                  {(selectedSubjectForSyllabus.syllabus || []).sort((a,b) => a.order - b.order).map((unit, index) => (
+                    <div 
+                      key={unit.id} 
+                      draggable="true"
+                      onDragStart={() => onDragStart(index)}
+                      onDrop={() => onDrop(index)}
+                      className={`p-5 rounded-2xl border transition-all flex items-center gap-5 group relative ${
+                        unit.status === 'COMPLETED' ? 'bg-emerald-50/40 border-emerald-100' : 
+                        unit.status === 'IN_PROGRESS' ? 'bg-indigo-50/40 border-indigo-100' :
+                        'bg-white border-slate-200 hover:border-indigo-200 shadow-sm'
+                      } ${draggedIndex === index ? 'opacity-40 scale-[0.98]' : 'opacity-100'}`}
+                    >
+                      {/* Status indicator bar */}
+                      <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full ${
+                        unit.status === 'COMPLETED' ? 'bg-emerald-500' : 
+                        unit.status === 'IN_PROGRESS' ? 'bg-indigo-500' : 
+                        'bg-slate-200'
+                      }`}></div>
+
+                      {/* Drag Handle */}
+                      <div className="cursor-grab active:cursor-grabbing text-slate-300 group-hover:text-slate-500 transition-colors shrink-0">
+                        <GripVertical size={20} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className={`text-[10px] font-black w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${
+                            unit.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {unit.order}
+                          </span>
+                          <h5 className={`font-black text-sm truncate ${unit.status === 'COMPLETED' ? 'text-emerald-900' : 'text-slate-900'}`}>
+                            {unit.title}
+                          </h5>
+                        </div>
+                        <p className={`text-xs font-medium leading-relaxed truncate ${unit.status === 'COMPLETED' ? 'text-emerald-600/70' : 'text-slate-400'}`}>
+                          {unit.description || 'Topic awaiting detailed curriculum documentation.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                         {/* Compact Status Switcher */}
+                         <div className="flex bg-slate-100/50 p-1 rounded-xl gap-1">
+                            <button 
+                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'PENDING')}
+                               title="Pending"
+                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'PENDING' ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-300 hover:text-slate-500'}`}
+                             >
+                               <Circle size={14} />
+                             </button>
+                             <button 
+                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'IN_PROGRESS')}
+                               title="In Progress"
+                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-300 hover:text-indigo-400'}`}
+                             >
+                               <PlayCircle size={14} />
+                             </button>
+                             <button 
+                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'COMPLETED')}
+                               title="Completed"
+                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'COMPLETED' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'text-slate-300 hover:text-emerald-400'}`}
+                             >
+                               <Check size={14} />
+                             </button>
+                         </div>
+                         
+                         <button 
+                           onClick={() => deleteSyllabusUnit(selectedSubjectForSyllabus.id, unit.id)}
+                           className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors ml-1"
+                         >
+                           <Trash2 size={16} />
+                         </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(selectedSubjectForSyllabus.syllabus || []).length === 0 && (
+                    <div className="py-16 text-center bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200">
+                      <ListTodo size={40} className="mx-auto text-slate-200 mb-3" />
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Curriculum data stream empty</p>
+                      <button 
+                        onClick={() => addSyllabusUnit(selectedSubjectForSyllabus.id)}
+                        className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all"
+                      >
+                        Begin Initialization
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-8 border-t border-slate-100 bg-white">
+               <button 
+                 onClick={() => setSelectedSubjectForSyllabus(null)}
+                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 shadow-xl transition-all"
+               >
+                 Close Curriculum Management
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Other Modals (Add Subject, Grading, etc) Omitted for brevity, kept exactly as they were */}
       {selectedSubjectForGrading && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForGrading(null)}></div>
@@ -529,124 +733,6 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
           </div>
         </div>
       )}
-
-      {/* Syllabus Management Modal */}
-      {selectedSubjectForSyllabus && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForSyllabus(null)}></div>
-          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/20">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
-                  <ListTodo size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedSubjectForSyllabus.name} Syllabus</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedSubjectForSyllabus.grade} • {selectedSubjectForSyllabus.teacher}</p>
-                </div>
-              </div>
-              <button onClick={() => setSelectedSubjectForSyllabus(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center justify-between">
-                 <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Curriculum Completion</p>
-                    <p className="text-3xl font-black text-indigo-600">{selectedSubjectForSyllabus.progress}%</p>
-                 </div>
-                 <div className="w-16 h-16 rounded-full border-4 border-slate-200 relative flex items-center justify-center">
-                    <div className="absolute inset-0 border-4 border-indigo-500 rounded-full" style={{ clipPath: `inset(${100 - selectedSubjectForSyllabus.progress}% 0 0 0)` }}></div>
-                    <TrendingUp size={24} className="text-indigo-400" />
-                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-2">
-                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Course Units (Drag to reorder)</h4>
-                   <button 
-                     onClick={() => addSyllabusUnit(selectedSubjectForSyllabus.id)}
-                     className="text-xs font-bold text-indigo-600 hover:underline"
-                   >
-                     + Add Unit
-                   </button>
-                </div>
-                
-                <div className="space-y-3">
-                  {(selectedSubjectForSyllabus.syllabus || []).sort((a,b) => a.order - b.order).map((unit, index) => (
-                    <div 
-                      key={unit.id} 
-                      draggable="true"
-                      onDragStart={() => onDragStart(index)}
-                      onDragOver={onDragOver}
-                      onDrop={() => onDrop(index)}
-                      className={`p-5 rounded-2xl border transition-all group flex items-start gap-4 ${
-                        unit.status === 'COMPLETED' ? 'bg-emerald-50/50 border-emerald-100' : 
-                        unit.status === 'IN_PROGRESS' ? 'bg-indigo-50/50 border-indigo-100' :
-                        'bg-white border-slate-200 hover:border-indigo-300 shadow-sm'
-                      } ${draggedIndex === index ? 'opacity-40 scale-95' : 'opacity-100'}`}
-                    >
-                      <div className="mt-1 cursor-grab active:cursor-grabbing text-slate-300 group-hover:text-slate-500">
-                        <GripVertical size={20} />
-                      </div>
-                      
-                      <div className="flex-1 overflow-hidden">
-                        <div className="flex items-center justify-between mb-1">
-                          <h5 className={`font-bold text-sm ${unit.status === 'COMPLETED' ? 'text-emerald-900' : 'text-slate-900'}`}>
-                            {unit.order}. {unit.title}
-                          </h5>
-                          <div className="flex items-center gap-1">
-                             <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'PENDING')}
-                               title="Mark as Pending"
-                               className={`p-1.5 rounded-lg transition-colors ${unit.status === 'PENDING' ? 'bg-slate-200 text-slate-700' : 'text-slate-300 hover:bg-slate-100'}`}
-                             >
-                               <Circle size={14} />
-                             </button>
-                             <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'IN_PROGRESS')}
-                               title="Mark as In Progress"
-                               className={`p-1.5 rounded-lg transition-colors ${unit.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-100'}`}
-                             >
-                               <PlayCircle size={14} />
-                             </button>
-                             <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'COMPLETED')}
-                               title="Mark as Completed"
-                               className={`p-1.5 rounded-lg transition-colors ${unit.status === 'COMPLETED' ? 'bg-emerald-500 text-white' : 'text-slate-300 hover:bg-slate-100'}`}
-                             >
-                               <Check size={14} />
-                             </button>
-                             <button 
-                               onClick={() => deleteSyllabusUnit(selectedSubjectForSyllabus.id, unit.id)}
-                               title="Delete Unit"
-                               className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg ml-2"
-                             >
-                               <Trash2 size={14} />
-                             </button>
-                          </div>
-                        </div>
-                        <p className={`text-xs mt-1 font-medium ${unit.status === 'COMPLETED' ? 'text-emerald-600/70' : 'text-slate-500'}`}>
-                          {unit.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-
-                  {(selectedSubjectForSyllabus.syllabus || []).length === 0 && (
-                    <div className="py-10 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No units defined yet</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modals for Add Subject and Add Event */}
       {isAddingSubject && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsAddingSubject(false)}></div>
@@ -679,23 +765,29 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
   );
 };
 
-const AcademicCard: React.FC<{ icon: React.ReactNode, label: string, value: string, color: string }> = ({ icon, label, value, color }) => (
-  <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-all">
-    <div className={`p-4 bg-slate-50 rounded-2xl group-hover:bg-${color}-50 transition-colors`}>{icon}</div>
-    <div>
-      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{label}</p>
-      <p className="text-2xl font-black text-slate-900 leading-tight">{value}</p>
+// Functions declared here to allow hoisting and resolve JSX typing issues
+function AcademicCard({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) {
+  return (
+    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-all">
+      <div className={`p-4 bg-slate-50 rounded-2xl group-hover:bg-${color}-50 transition-colors`}>{icon}</div>
+      <div>
+        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{label}</p>
+        <p className="text-2xl font-black text-slate-900 leading-tight">{value}</p>
+      </div>
     </div>
-  </div>
-);
+  );
+}
 
-const FormGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
-  <div className={`space-y-2 ${className}`}>
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-    {React.cloneElement(children as React.ReactElement<any>, {
-      className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white ${(children as any).props?.className || ""}`
-    })}
-  </div>
-);
+function FormGroup({ label, children, className = "" }: { label: string, children?: React.ReactElement, className?: string }) {
+  if (!children) return null;
+  return (
+    <div className={`space-y-2 ${className}`}>
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+      {React.cloneElement(children, {
+        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white ${children.props?.className || ""}`
+      } as any)}
+    </div>
+  );
+}
 
 export default AcademicManagement;

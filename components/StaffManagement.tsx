@@ -13,35 +13,39 @@ import {
   FileText,
   TrendingUp,
   Clock,
-  IdCard
+  IdCard,
+  Crown,
+  Edit2,
+  X,
+  ChevronDown
 } from 'lucide-react';
 import IDCardGenerator from './IDCardGenerator';
-import { Staff } from '../types';
+import { Staff, AcademicStream } from '../types';
 
 interface StaffManagementProps {
-  /* Fixed: Added staff prop */
-  staff?: Staff[];
+  staff: Staff[];
+  setStaff: React.Dispatch<React.SetStateAction<Staff[]>>;
 }
 
-const StaffManagement: React.FC<StaffManagementProps> = ({ staff: propStaff }) => {
+const StaffManagement: React.FC<StaffManagementProps> = ({ staff, setStaff }) => {
   const [activeTab, setActiveTab] = useState<'DIRECTORY' | 'LEAVE' | 'PAYROLL'>('DIRECTORY');
   const [selectedStaffForID, setSelectedStaffForID] = useState<Staff | null>(null);
-
-  /* Fixed: Added tenantId to local mock staff data */
-  const localStaff: Staff[] = [
-    { id: '1', tenantId: 'T1', name: 'Dr. Alan Grant', role: 'Head of Science', department: 'Science', joiningDate: '2020-01-15', salary: 6500 },
-    { id: '2', tenantId: 'T1', name: 'Ms. Ellie Sattler', role: 'Senior Lecturer', department: 'Humanities', joiningDate: '2021-03-22', salary: 5200 },
-    { id: '3', tenantId: 'T1', name: 'Mr. Ian Malcolm', role: 'Mathematics Teacher', department: 'STEM', joiningDate: '2022-08-10', salary: 4800 },
-    { id: '4', tenantId: 'T1', name: 'Mrs. Claire Dearing', role: 'Admin Coordinator', department: 'Administration', joiningDate: '2019-11-05', salary: 4500 },
-  ];
-
-  const staff = propStaff || localStaff;
+  const [editingHOD, setEditingHOD] = useState<Staff | null>(null);
 
   const leaveRequests = [
     { name: 'Mr. Ian Malcolm', reason: 'Medical Checkup', dates: 'June 14 - June 15', status: 'PENDING' },
     { name: 'Ms. Ellie Sattler', reason: 'Academic Conference', dates: 'June 20 - June 22', status: 'APPROVED' },
     { name: 'Dr. Alan Grant', reason: 'Field Research', dates: 'July 01 - July 05', status: 'PENDING' },
   ];
+
+  const handleUpdateHOD = (staffId: string, isHOD: boolean, department?: string) => {
+    setStaff(prev => prev.map(s => 
+      s.id === staffId ? { ...s, isHOD, department: department || s.department } : s
+    ));
+    setEditingHOD(null);
+  };
+
+  const STREAMS: AcademicStream[] = ['SCIENCE', 'ART', 'COMMERCIAL', 'GENERAL'];
 
   return (
     <div className="p-8">
@@ -81,21 +85,38 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: propStaff }) =
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <HRStat label="Total Staff" value={staff.length.toString()} sub="Verified Records" icon={<Briefcase />} />
             <HRStat label="On Campus" value={(staff.length - 1).toString()} sub="Active Status" icon={<UserCheck />} />
-            <HRStat label="Contract Renewals" value="3" sub="Due this month" icon={<ShieldCheck />} />
+            <HRStat label="Heads of Dept" value={staff.filter(s => s.isHOD).length.toString()} sub="Institutional Leaders" icon={<Crown />} />
             <HRStat label="New Hires" value="2" sub="Onboarding" icon={<TrendingUp />} />
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="divide-y divide-slate-100">
               {staff.map((s, i) => (
-                <div key={i} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-all group">
+                <div key={s.id} className="px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-all group">
                   <div className="flex items-center gap-4">
-                    <img src={`https://picsum.photos/id/${(i % 50) + 20}/100/100`} className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100" alt="" />
+                    <div className="relative">
+                      <img src={`https://picsum.photos/id/${(i % 50) + 20}/100/100`} className="w-12 h-12 rounded-2xl object-cover ring-2 ring-slate-100 shadow-sm" alt="" />
+                      {s.isHOD && (
+                        <div className="absolute -top-2 -right-2 p-1 bg-amber-500 text-white rounded-lg shadow-lg border-2 border-white">
+                          <Crown size={12} />
+                        </div>
+                      )}
+                    </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">{s.name}</h4>
-                      <p className="text-xs text-slate-500 uppercase tracking-tighter">{s.role} • {s.department}</p>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-900">{s.name}</h4>
+                        {s.isHOD && <span className="text-[8px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase tracking-widest">HOD</span>}
+                      </div>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-tight">{s.role} • <span className="text-indigo-600">{s.department}</span></p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setEditingHOD(s)}
+                      className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                      title="Manage HOD Status"
+                    >
+                      <Crown size={18} />
+                    </button>
                     <button 
                       onClick={() => setSelectedStaffForID(s)}
                       className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -103,17 +124,70 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ staff: propStaff }) =
                     >
                       <IdCard size={18} />
                     </button>
-                    <div className="flex items-center gap-2 min-w-[100px] justify-end">
-                      <span className={`w-2 h-2 rounded-full ${s.name === 'Mr. Ian Malcolm' ? 'bg-slate-300' : 'bg-emerald-500'}`}></span>
-                      <span className="text-xs font-medium text-slate-600">{s.name === 'Mr. Ian Malcolm' ? 'Away' : 'On Campus'}</span>
-                    </div>
-                    <button className="p-2 text-slate-400 hover:text-indigo-600">
+                    <button className="p-2 text-slate-400 hover:text-indigo-600 rounded-lg">
                       <ExternalLink size={18} />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* HOD Designation Modal */}
+      {editingHOD && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setEditingHOD(null)}></div>
+          <div className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-amber-50/30">
+               <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500 rounded-xl text-white shadow-lg">
+                    <Crown size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 uppercase">Departmental Leadership</h3>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Appoint Head of Department</p>
+                  </div>
+               </div>
+               <button onClick={() => setEditingHOD(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                 <X size={24} />
+               </button>
+             </div>
+             <div className="p-8 space-y-6">
+                <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                   <img src={`https://picsum.photos/id/40/100/100`} className="w-12 h-12 rounded-xl object-cover" alt="" />
+                   <div>
+                      <p className="text-sm font-black text-slate-900">{editingHOD.name}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">{editingHOD.role}</p>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Leadership Designation</label>
+                   <button 
+                     onClick={() => handleUpdateHOD(editingHOD.id, !editingHOD.isHOD)}
+                     className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all border-2 ${editingHOD.isHOD ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100' : 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100'}`}
+                   >
+                     {editingHOD.isHOD ? <><XCircle size={18} /> Revoke HOD Status</> : <><Crown size={18} /> Promote to HOD</>}
+                   </button>
+                </div>
+
+                <div className="space-y-4">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Assigned Department</label>
+                   <div className="grid grid-cols-2 gap-2">
+                     {STREAMS.map(stream => (
+                       <button 
+                         key={stream}
+                         onClick={() => handleUpdateHOD(editingHOD.id, true, stream)}
+                         className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${editingHOD.department === stream ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-400 hover:text-indigo-600'}`}
+                       >
+                         {stream}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+             </div>
           </div>
         </div>
       )}

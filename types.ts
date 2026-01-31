@@ -18,6 +18,8 @@ export type SyllabusStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 
 export type DocumentCategory = 'ACADEMIC' | 'MEDICAL' | 'CONSENT' | 'IDENTIFICATION' | 'OTHER';
 
+export type AcademicStream = 'SCIENCE' | 'ART' | 'COMMERCIAL' | 'GENERAL';
+
 export interface Tenant {
   id: string;
   name: string;
@@ -40,6 +42,7 @@ export interface StudentDocument {
 export interface Student {
   id: string;
   tenantId: string;
+  applicationId?: string;
   name: string;
   grade: string;
   section: string;
@@ -59,6 +62,7 @@ export interface Student {
   emergencyContactPhone?: string;
   profilePicture?: string;
   documents?: StudentDocument[];
+  stream?: AcademicStream;
 }
 
 export interface Staff {
@@ -69,6 +73,7 @@ export interface Staff {
   department: string;
   joiningDate: string;
   salary: number;
+  isHOD?: boolean;
 }
 
 export interface SyllabusUnit {
@@ -95,6 +100,7 @@ export interface Subject {
   name: string;
   grade: string;
   teacher: string;
+  teacherId?: string;
   progress: number;
   syllabus?: SyllabusUnit[];
   assessments?: Assessment[];
@@ -108,6 +114,9 @@ export interface Classroom {
   classTeacherId?: string;
   roomNumber: string;
   capacity: number;
+  schoolSection?: 'JUNIOR' | 'SENIOR';
+  shift?: 'MORNING' | 'AFTERNOON';
+  stream?: AcademicStream;
 }
 
 export interface AdmissionApplication {
@@ -128,6 +137,9 @@ export interface AdmissionApplication {
   profilePicture?: string;
   documents?: StudentDocument[];
   medicalNotes?: string;
+  previousSchool?: string;
+  lastGradeCompleted?: string;
+  leavingReason?: string;
 }
 
 export interface FinancialTransaction {
