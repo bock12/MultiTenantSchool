@@ -18,7 +18,6 @@ import {
   ShieldCheck,
   Building2,
   Globe,
-  /* Fixed: Added Plus to imports */
   Plus
 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
@@ -61,7 +60,19 @@ const INITIAL_SUBJECTS: Subject[] = [
       { id: 'U2', title: 'Quadratic Equations', description: 'Solving quadratics.', status: 'COMPLETED', order: 2 },
     ]
   },
-  { id: 'SUB2', tenantId: 'T2', name: 'Science', grade: 'Grade 10', teacher: 'Mr. Ian Malcolm', teacherId: 'STF3', progress: 0, assessments: [], syllabus: [] },
+  { 
+    id: 'SUB2', tenantId: 'T2', name: 'Science', grade: 'Grade 10', teacher: 'Mr. Ian Malcolm', teacherId: 'STF3', progress: 0, 
+    assessments: [], 
+    syllabus: [
+      { 
+        id: 'U-QM', 
+        title: 'Introduction to Quantum Mechanics', 
+        description: 'A basic overview of quantum concepts.', 
+        status: 'PENDING', 
+        order: 1 
+      }
+    ] 
+  },
 ];
 
 const INITIAL_CLASSROOMS: Classroom[] = [
@@ -168,14 +179,15 @@ const App: React.FC = () => {
         <div className="absolute top-0 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px]"></div>
         
-        <div className="max-w-4xl w-full z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-          <div className="text-center mb-16">
-             <div className="inline-flex items-center gap-3 bg-white/5 border border-white/10 px-6 py-2 rounded-full backdrop-blur-md mb-6">
-                <ShieldCheck size={16} className="text-indigo-400" />
-                <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Institutional Access Control</span>
-             </div>
-             <h1 className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-4">EduNexus <span className="text-indigo-500">v2.5</span></h1>
-             <p className="text-slate-400 text-base md:text-lg max-w-lg mx-auto font-medium">Please select your managed institution to initialize the OS session.</p>
+        <div className="max-w-4xl w-full z-10">
+          <div className="text-center mb-12">
+            <div className="inline-flex p-4 rounded-3xl bg-indigo-500/10 mb-6">
+              <BrainCircuit size={64} className="text-indigo-400" />
+            </div>
+            <h1 className="text-5xl font-black text-white tracking-tighter mb-4">EduNexus</h1>
+            <p className="text-slate-400 text-lg max-w-lg mx-auto font-medium">
+              The next-generation multi-tenant operating system for modern educational institutions.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -183,168 +195,134 @@ const App: React.FC = () => {
               <button
                 key={tenant.id}
                 onClick={() => setActiveTenant(tenant)}
-                className="group relative bg-white/5 border border-white/10 p-8 rounded-[2.5rem] text-left hover:bg-white/10 hover:scale-105 transition-all duration-500 backdrop-blur-lg"
+                className="group relative bg-slate-800/50 border border-slate-700 p-8 rounded-[2.5rem] text-left hover:bg-slate-800 hover:border-indigo-500 transition-all hover:scale-[1.02]"
               >
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:rotate-12`} style={{ backgroundColor: tenant.primaryColor }}>
-                  <Building2 className="text-white" size={28} />
+                <div 
+                  className="w-16 h-16 rounded-2xl mb-6 flex items-center justify-center text-white shadow-xl"
+                  style={{ backgroundColor: tenant.primaryColor }}
+                >
+                  <School size={32} />
                 </div>
-                <h3 className="text-xl font-black text-white leading-tight mb-2">{tenant.name}</h3>
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                    <Globe size={12} /> {tenant.subdomain}.edunexus.io
-                  </span>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="text-[10px] font-bold text-slate-400">{tenant.studentCount} Students</span>
-                    <ChevronRight size={20} className="text-slate-600 group-hover:text-white transition-colors" />
-                  </div>
+                <h3 className="text-xl font-bold text-white mb-2">{tenant.name}</h3>
+                <p className="text-slate-500 text-sm mb-6">{tenant.region}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-indigo-400 text-xs font-black uppercase tracking-widest">{tenant.studentCount} Students</span>
+                  <ChevronRight size={20} className="text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                 </div>
               </button>
             ))}
           </div>
 
-          <div className="mt-20 text-center">
-            <button className="text-slate-500 hover:text-white text-xs font-black uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto">
-              <Plus size={16} /> Register New Institution
-            </button>
-          </div>
+          <p className="text-center text-slate-600 text-[10px] font-black uppercase tracking-[0.3em] mt-16">
+            Institutional OS v2.5 • Unified Multi-Tenant Architecture
+          </p>
         </div>
       </div>
     );
   }
 
-  const renderContent = () => {
-    if (!tenantData) return null;
-    switch (currentView) {
-      case 'DASHBOARD':
-        return <PrincipalDashboard />;
-      case 'STUDENTS':
-        return <StudentManagement students={tenantData.students} setStudents={setStudents} activeTenant={activeTenant} admissions={tenantData.admissions} />;
-      case 'CLASSROOMS':
-        return <ClassroomManagement classrooms={tenantData.classrooms} setClassrooms={setClassrooms} students={tenantData.students} subjects={tenantData.subjects} staff={tenantData.staff} activeTenant={activeTenant} />;
-      case 'ADMISSIONS':
-        return (
-          <AdmissionsPortal 
-            admissions={tenantData.admissions} 
-            setAdmissions={setAdmissions} 
-            onUpdateStatus={handleAdmissionStatusUpdate} 
-            students={tenantData.students} 
-            setStudents={setStudents}
-            activeTenant={activeTenant}
-          />
-        );
-      case 'ACADEMICS':
-        return (
-          <AcademicManagement 
-            subjects={tenantData.subjects} 
-            setSubjects={setSubjects} 
-            onUpdateSyllabus={updateSyllabus} 
-            onUpdateAssessments={updateAssessments}
-            students={tenantData.students}
-            activeTenant={activeTenant}
-          />
-        );
-      case 'FINANCE':
-        return <FinanceManagement />;
-      case 'STAFF':
-        return <StaffManagement staff={tenantData.staff} setStaff={setStaff} />;
-      case 'LIBRARY':
-        return <LibraryManagement />;
-      case 'AI_INSIGHTS':
-        return <AIInsights />;
-      case 'MOBILE_SYNC':
-        return <MobileSync />;
-      default:
-        return null;
-    }
-  };
-
   return (
-    <div className="flex h-screen bg-slate-50 relative overflow-hidden">
-      {notification && (
-        <div className="fixed top-20 right-4 md:right-8 z-[100] animate-in slide-in-from-right fade-in duration-300 max-w-[90vw] md:max-w-md">
-          <div className="bg-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-500">
-            <CheckCircle2 size={24} className="shrink-0" />
-            <div className="min-w-0">
-              <p className="font-black text-sm uppercase tracking-widest truncate">System Update</p>
-              <p className="text-xs text-emerald-100 font-medium truncate">{notification}</p>
-            </div>
-            <button onClick={() => setNotification(null)} className="ml-4 hover:bg-emerald-700 p-1 rounded-lg transition-colors shrink-0">
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30" 
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar 
         currentView={currentView} 
-        setCurrentView={(view) => {
-          setCurrentView(view);
-          if (window.innerWidth < 1024) setSidebarOpen(false);
-        }} 
-        isOpen={isSidebarOpen}
+        setCurrentView={setCurrentView} 
+        isOpen={isSidebarOpen} 
         activeTenant={activeTenant}
         onSwitchTenant={() => setActiveTenant(null)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-20 shrink-0">
-          <div className="flex items-center gap-3 md:gap-6 text-slate-500 min-w-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+          <div className="flex items-center gap-4">
             <button 
               onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+              className="p-2 hover:bg-slate-50 rounded-lg text-slate-500 lg:hidden"
             >
-              <Menu size={24} />
+              {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <div className="flex items-center gap-2 min-w-0">
-               <div className="w-2.5 h-2.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: activeTenant.primaryColor }}></div>
-               <span className="text-[10px] md:text-xs font-black uppercase text-slate-900 tracking-widest truncate">{activeTenant.name}</span>
-            </div>
-            <div className="relative group hidden xl:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 type="text" 
-                placeholder="Search across institution..." 
-                className="pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 w-64 transition-all text-sm font-medium"
+                placeholder="Search resources, students..." 
+                className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm w-80 focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-3 md:gap-6">
-            <button 
-              onClick={() => setCurrentView('AI_INSIGHTS')}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all border border-slate-700 shadow-xl shadow-slate-200"
-            >
-              <BrainCircuit size={16} className="text-indigo-400" />
-              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">AI Hub</span>
-            </button>
-            <button className="relative text-slate-400 hover:text-indigo-600 transition-colors p-1">
-              <Bell size={20} />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="flex items-center gap-2 md:gap-3 pl-3 md:pl-6 border-l border-slate-200">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-black text-slate-900 leading-none">Dr. Sarah Jenkins</p>
-                <p className="text-[9px] text-slate-500 mt-1.5 uppercase tracking-widest font-black">Admin</p>
-              </div>
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 font-bold border border-slate-200">
-                SJ
+          <div className="flex items-center gap-6">
+            <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full font-black text-[10px] uppercase tracking-widest border border-indigo-100">
+              <ShieldCheck size={12} /> Principal Access
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all relative">
+                <Bell size={20} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+              </button>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-200">
+                P
               </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 custom-scrollbar p-0">
-          {renderContent()}
-        </main>
-      </div>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
+          {notification && (
+            <div className="mx-8 mt-6 p-4 bg-indigo-600 text-white rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-4 shadow-xl shadow-indigo-200">
+              <CheckCircle2 size={20} />
+              <p className="font-bold text-sm">{notification}</p>
+            </div>
+          )}
+
+          {currentView === 'DASHBOARD' && <PrincipalDashboard />}
+          {currentView === 'ADMISSIONS' && (
+            <AdmissionsPortal 
+              admissions={admissions} 
+              setAdmissions={setAdmissions} 
+              onUpdateStatus={handleAdmissionStatusUpdate}
+              students={students}
+              setStudents={setStudents}
+              activeTenant={activeTenant}
+            />
+          )}
+          {currentView === 'STUDENTS' && (
+            <StudentManagement 
+              students={tenantData?.students || []} 
+              setStudents={setStudents}
+              activeTenant={activeTenant}
+              admissions={admissions}
+            />
+          )}
+          {currentView === 'ACADEMICS' && (
+            <AcademicManagement 
+              subjects={tenantData?.subjects || []}
+              setSubjects={setSubjects}
+              onUpdateSyllabus={updateSyllabus}
+              onUpdateAssessments={updateAssessments}
+              students={tenantData?.students || []}
+              activeTenant={activeTenant}
+            />
+          )}
+          {currentView === 'CLASSROOMS' && (
+            <ClassroomManagement 
+              classrooms={tenantData?.classrooms || []}
+              setClassrooms={setClassrooms}
+              students={tenantData?.students || []}
+              subjects={tenantData?.subjects || []}
+              setSubjects={setSubjects}
+              staff={tenantData?.staff || []}
+              activeTenant={activeTenant}
+            />
+          )}
+          {currentView === 'FINANCE' && <FinanceManagement />}
+          {currentView === 'STAFF' && <StaffManagement staff={tenantData?.staff || []} setStaff={setStaff} />}
+          {currentView === 'LIBRARY' && <LibraryManagement />}
+          {currentView === 'AI_INSIGHTS' && <AIInsights />}
+          {currentView === 'MOBILE_SYNC' && <MobileSync />}
+        </div>
+      </main>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Book, 
   Plus, 
@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Info,
   User,
+  // Fix: added missing Users import
+  Users,
   GraduationCap,
   LayoutGrid,
   Check,
@@ -32,7 +34,8 @@ import {
   Bell,
   MoreVertical,
   ChevronDown,
-  CircleDot
+  CircleDot,
+  CheckCircle
 } from 'lucide-react';
 import { AddSubjectFormBatch } from './AddSubjectFormBatch';
 import { Subject, SyllabusUnit, Assessment, Student, SyllabusStatus, Tenant } from '../types';
@@ -70,6 +73,68 @@ const MOCK_TEACHERS = [
 ];
 
 const CLASSES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+
+/**
+ * GradeInput sub-component for inline editing with visual feedback
+ */
+const GradeInput = ({ 
+  initialValue, 
+  onSave, 
+  maxMarks 
+}: { 
+  initialValue: number | string, 
+  onSave: (val: number) => void, 
+  maxMarks: number 
+}) => {
+  const [val, setVal] = useState(initialValue.toString());
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Sync with initial value if it changes externally
+  useEffect(() => {
+    setVal(initialValue.toString());
+  }, [initialValue]);
+
+  const handleBlur = () => {
+    const numeric = parseFloat(val) || 0;
+    const clamped = Math.min(Math.max(0, numeric), maxMarks);
+    
+    // Only trigger if actually changed
+    if (clamped !== parseFloat(initialValue.toString() || "0")) {
+      onSave(clamped);
+      setVal(clamped.toString());
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    }
+  };
+
+  return (
+    <div className="relative flex items-center justify-center group">
+      <input 
+        type="number"
+        max={maxMarks}
+        min={0}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur();
+          }
+        }}
+        className={`w-16 px-2 py-1.5 rounded-lg text-center text-xs font-black outline-none transition-all border ${
+          isSaved 
+            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-700' 
+            : 'bg-slate-50 border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white text-slate-700'
+        }`}
+      />
+      {isSaved && (
+        <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-emerald-500 animate-in fade-in zoom-in duration-300 pointer-events-none">
+          <CheckCircle size={14} strokeWidth={3} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSubjects, onUpdateSyllabus, onUpdateAssessments, students, activeTenant }) => {
   const [activeTab, setActiveTab] = useState<'SUBJECTS' | 'CALENDAR'>('SUBJECTS');
@@ -374,7 +439,6 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
           </div>
         </div>
       ) : (
-        /* Calendar view omitted for brevity, keeping same logic */
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
              <div className="flex items-center gap-4">
@@ -447,7 +511,7 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
         </div>
       )}
 
-      {/* Syllabus Management Modal - REFACTORED */}
+      {/* Syllabus Management Modal */}
       {selectedSubjectForSyllabus && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForSyllabus(null)}></div>
@@ -604,7 +668,6 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
         </div>
       )}
 
-      {/* Other Modals (Add Subject, Grading, etc) Omitted for brevity, kept exactly as they were */}
       {selectedSubjectForGrading && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForGrading(null)}></div>
@@ -679,44 +742,44 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                        <table className="w-full text-left">
                           <thead className="bg-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
                              <tr>
-                                <th className="px-6 py-4 sticky left-0 bg-slate-100 z-10">Student Name</th>
+                                <th className="px-6 py-5 sticky left-0 bg-slate-100 z-10">Student Profile</th>
                                 {(selectedSubjectForGrading.assessments || []).map(asm => (
-                                  <th key={asm.id} className="px-6 py-4 text-center">
-                                    {asm.title.split(' ')[0]} 
-                                    <span className="block text-[8px] opacity-60">/{asm.maxMarks}</span>
+                                  <th key={asm.id} className="px-6 py-5 text-center">
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-slate-800">{asm.title}</span>
+                                      <span className="text-[8px] opacity-40 font-bold tracking-tight">MAX: {asm.maxMarks} • {asm.weightage}%</span>
+                                    </div>
                                   </th>
                                 ))}
-                                <th className="px-6 py-4 text-right bg-indigo-50 text-indigo-600">Final Grade</th>
+                                <th className="px-6 py-5 text-right bg-indigo-50 text-indigo-600 border-l border-indigo-100">Final Weighted</th>
                              </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-200 bg-white">
+                          <tbody className="divide-y divide-slate-100 bg-white">
                              {students.filter(s => s.grade === selectedSubjectForGrading.grade).map(student => {
                                const overall = calculateOverallGrade(student.id, selectedSubjectForGrading);
                                return (
-                                 <tr key={student.id} className="hover:bg-slate-50/50">
+                                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100">
                                        <div className="flex items-center gap-3">
-                                          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-bold">
+                                          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-black shadow-sm border border-slate-200 shrink-0">
                                              {student.name.charAt(0)}
                                           </div>
-                                          <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]">{student.name}</span>
+                                          <div className="min-w-0">
+                                            <p className="text-xs font-black text-slate-900 truncate max-w-[140px]">{student.name}</p>
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{student.admissionNo}</p>
+                                          </div>
                                        </div>
                                     </td>
                                     {(selectedSubjectForGrading.assessments || []).map(asm => (
                                       <td key={asm.id} className="px-6 py-4">
-                                         <div className="flex items-center justify-center">
-                                            <input 
-                                              type="number"
-                                              max={asm.maxMarks}
-                                              min={0}
-                                              defaultValue={asm.scores[student.id] || ''}
-                                              onBlur={(e) => handleScoreUpdate(asm.id, student.id, parseFloat(e.target.value) || 0)}
-                                              className="w-16 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-center text-xs font-black focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                                            />
-                                         </div>
+                                         <GradeInput 
+                                           initialValue={asm.scores[student.id] ?? ''}
+                                           maxMarks={asm.maxMarks}
+                                           onSave={(newScore) => handleScoreUpdate(asm.id, student.id, newScore)}
+                                         />
                                       </td>
                                     ))}
-                                    <td className="px-6 py-4 text-right bg-indigo-50/30">
+                                    <td className="px-6 py-4 text-right bg-indigo-50/30 border-l border-indigo-100/50">
                                        <span className={`text-sm font-black ${overall >= 80 ? 'text-emerald-600' : overall >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
                                           {overall}%
                                        </span>
@@ -727,6 +790,13 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                           </tbody>
                        </table>
                     </div>
+                    {students.filter(s => s.grade === selectedSubjectForGrading.grade).length === 0 && (
+                      <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+                         {/* Fix: use Users icon which is now imported */}
+                         <Users size={48} className="mx-auto text-slate-200 mb-4" />
+                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No students enrolled in this grade level</p>
+                      </div>
+                    )}
                  </div>
                )}
             </div>
@@ -778,13 +848,14 @@ function AcademicCard({ icon, label, value, color }: { icon: React.ReactNode, la
   );
 }
 
+// Added cast to `any` for children.props to avoid "Property 'className' does not exist on type 'unknown'" error.
 function FormGroup({ label, children, className = "" }: { label: string, children?: React.ReactElement, className?: string }) {
   if (!children) return null;
   return (
     <div className={`space-y-2 ${className}`}>
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
       {React.cloneElement(children, {
-        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white ${children.props?.className || ""}`
+        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white ${(children.props as any)?.className || ""}`
       } as any)}
     </div>
   );

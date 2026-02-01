@@ -718,13 +718,14 @@ function DetailBox({ label, value, icon, className = "" }: { label: string, valu
   );
 }
 
+// Added cast to `any` for children.props to avoid "Property 'className' does not exist on type 'unknown'" error.
 function FormGroup({ label, children, className = "" }: { label: string, children?: React.ReactElement, className?: string }) {
   if (!children) return null;
   return (
     <div className={`space-y-2.5 ${className}`}>
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1 opacity-80">{label}</label>
       {React.cloneElement(children, {
-        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[1.2rem] outline-none text-sm font-bold transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white placeholder:text-slate-300 ${children.props?.className || ""}`
+        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-[1.2rem] outline-none text-sm font-bold transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white placeholder:text-slate-300 ${(children.props as any)?.className || ""}`
       } as any)}
     </div>
   );
