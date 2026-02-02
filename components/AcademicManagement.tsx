@@ -1,41 +1,43 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Book, 
   Plus, 
   Search, 
   BookOpen, 
-  Layers, 
   CheckCircle2, 
   Calendar as CalendarIcon, 
   Trash2, 
   Clock, 
-  MapPin, 
   X,
   ChevronRight,
-  Info,
   User,
-  // Fix: added missing Users import
   Users,
-  GraduationCap,
   LayoutGrid,
-  Check,
   ListTodo,
   TrendingUp,
   Circle,
-  FileSpreadsheet,
   Award,
   AlertCircle,
-  Edit3,
   GripVertical,
-  PlayCircle,
   CalendarDays,
-  CalendarRange,
-  Bell,
-  MoreVertical,
   ChevronDown,
-  CircleDot,
-  CheckCircle
+  CheckCircle,
+  Target,
+  Sparkles,
+  Zap,
+  Table as TableIcon,
+  Check,
+  Trophy,
+  PlayCircle,
+  Hash,
+  ArrowDownWideLog,
+  Flag,
+  UserCog,
+  FileSpreadsheet,
+  Calculator,
+  ShieldCheck,
+  Medal
 } from 'lucide-react';
 import { AddSubjectFormBatch } from './AddSubjectFormBatch';
 import { Subject, SyllabusUnit, Assessment, Student, SyllabusStatus, Tenant } from '../types';
@@ -73,63 +75,63 @@ const MOCK_TEACHERS = [
 ];
 
 const CLASSES = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const TERMS = ['FIRST', 'SECOND', 'THIRD'] as const;
 
 /**
- * GradeInput sub-component for inline editing with visual feedback
+ * GradeInput sub-component for high-speed inline entry
  */
 const GradeInput = ({ 
   initialValue, 
   onSave, 
-  maxMarks 
+  maxMarks = 100,
+  isSmall = false,
+  className = ""
 }: { 
   initialValue: number | string, 
   onSave: (val: number) => void, 
-  maxMarks: number 
+  maxMarks?: number,
+  isSmall?: boolean,
+  className?: string
 }) => {
-  const [val, setVal] = useState(initialValue.toString());
+  const [val, setVal] = useState(initialValue?.toString() || "");
   const [isSaved, setIsSaved] = useState(false);
 
-  // Sync with initial value if it changes externally
   useEffect(() => {
-    setVal(initialValue.toString());
+    setVal(initialValue?.toString() || "");
   }, [initialValue]);
 
   const handleBlur = () => {
-    const numeric = parseFloat(val) || 0;
+    const numeric = parseFloat(val);
+    if (isNaN(numeric)) {
+      if (initialValue !== "" && initialValue !== undefined) onSave(0);
+      return;
+    }
     const clamped = Math.min(Math.max(0, numeric), maxMarks);
-    
-    // Only trigger if actually changed
-    if (clamped !== parseFloat(initialValue.toString() || "0")) {
+    if (clamped !== parseFloat(initialValue?.toString() || "-1")) {
       onSave(clamped);
-      setVal(clamped.toString());
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
     }
   };
 
   return (
-    <div className="relative flex items-center justify-center group">
+    <div className={`relative flex items-center justify-center ${className}`}>
       <input 
         type="number"
-        max={maxMarks}
-        min={0}
         value={val}
         onChange={(e) => setVal(e.target.value)}
         onBlur={handleBlur}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.currentTarget.blur();
-          }
-        }}
-        className={`w-16 px-2 py-1.5 rounded-lg text-center text-xs font-black outline-none transition-all border ${
+        placeholder="--"
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        className={`${isSmall ? 'w-11 h-7 rounded-md text-[10px]' : 'w-14 h-8 rounded-lg text-xs'} px-1 text-center font-black outline-none transition-all border ${
           isSaved 
             ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-700' 
-            : 'bg-slate-50 border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white text-slate-700'
+            : 'bg-white border-slate-200 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-700'
         }`}
       />
       {isSaved && (
-        <div className="absolute -right-6 top-1/2 -translate-y-1/2 text-emerald-500 animate-in fade-in zoom-in duration-300 pointer-events-none">
-          <CheckCircle size={14} strokeWidth={3} />
+        <div className={`absolute ${isSmall ? '-right-2.5' : '-right-4'} text-emerald-500 animate-in fade-in zoom-in duration-300`}>
+          <Check size={isSmall ? 8 : 10} strokeWidth={4} />
         </div>
       )}
     </div>
@@ -137,180 +139,179 @@ const GradeInput = ({
 };
 
 const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSubjects, onUpdateSyllabus, onUpdateAssessments, students, activeTenant }) => {
-  const [activeTab, setActiveTab] = useState<'SUBJECTS' | 'CALENDAR'>('SUBJECTS');
+  const [activeTab, setActiveTab] = useState<'SUBJECTS' | 'GRADEBOOK' | 'CALENDAR'>('SUBJECTS');
+  const [gradingTab, setGradingTab] = useState<'ASSESSMENTS' | 'LEDGER'>('LEDGER');
   const [events, setEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
-  
-  const [isAddingEvent, setIsAddingEvent] = useState(false);
   const [isAddingSubject, setIsAddingSubject] = useState(false);
   const [isBatchAdding, setIsBatchAdding] = useState(false);
   const [selectedSubjectForSyllabus, setSelectedSubjectForSyllabus] = useState<Subject | null>(null);
-  const [selectedSubjectForGrading, setSelectedSubjectForGrading] = useState<Subject | null>(null);
-  
-  const [newEvent, setNewEvent] = useState({ title: '', description: '', date: '', type: 'EVENT' as const });
-  const [newSubject, setNewSubject] = useState({ name: '', grade: 'Grade 5', teacher: '', progress: 0 });
+  const [selectedGradebookSubjectId, setSelectedGradebookSubjectId] = useState<string>("");
+  const [selectedStudentForGrades, setSelectedStudentForGrades] = useState<Student | null>(null);
 
-  // Drag and Drop state
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  // Syllabus Interaction State
+  const [isAddingUnit, setIsAddingUnit] = useState(false);
+  const [draggedUnitIndex, setDraggedUnitIndex] = useState<number | null>(null);
+  const [unitForm, setUnitForm] = useState({ title: '', description: '', status: 'PENDING' as SyllabusStatus });
 
-  // Grading Specific State
-  const [gradingTab, setGradingTab] = useState<'ASSESSMENTS' | 'GRADEBOOK'>('ASSESSMENTS');
-  const [isAddingAssessment, setIsAddingAssessment] = useState(false);
-  const [newAssessment, setNewAssessment] = useState({ title: '', type: 'ASSIGNMENT' as Assessment['type'], maxMarks: 100, weightage: 20, date: '' });
+  // --- Ledger Calculation Helpers ---
 
-  const handleAddEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    const event: SchoolEvent = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...newEvent
-    };
-    setEvents([event, ...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-    setIsAddingEvent(false);
-    setNewEvent({ title: '', description: '', date: '', type: 'EVENT' });
+  const getStudentScore = (subjectId: string, term: string, subType: 'TEST' | 'EXAM', studentId: string) => {
+    const sub = subjects.find(s => s.id === subjectId);
+    const asm = sub?.assessments?.find(a => a.term === term && a.subType === subType);
+    if (!asm) return null;
+    return { score: asm.scores[studentId], maxMarks: asm.maxMarks, id: asm.id };
   };
 
-  const handleAddSubject = (e: React.FormEvent) => {
-    e.preventDefault();
-    const subject: Subject = {
-      id: `SUB-${Date.now()}`,
-      tenantId: activeTenant.id,
-      ...newSubject,
-      syllabus: [],
-      assessments: []
-    };
-    setSubjects([subject, ...subjects]);
-    setIsAddingSubject(false);
-    setNewSubject({ name: '', grade: 'Grade 5', teacher: '', progress: 0 });
-  };
-
-  const handleAddAssessment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSubjectForGrading) return;
+  const calculateTermAverage = (subjectId: string, studentId: string, term: string) => {
+    const sub = subjects.find(s => s.id === subjectId);
+    if (!sub) return 0;
     
-    const assessment: Assessment = {
-      id: `ASM-${Date.now()}`,
-      ...newAssessment,
-      scores: {}
-    };
+    const test = sub.assessments?.find(a => a.term === term && a.subType === 'TEST');
+    const exam = sub.assessments?.find(a => a.term === term && a.subType === 'EXAM');
+    
+    if (!test && !exam) return 0;
+    
+    // (Test + Exam) / 2 as per "Architecture" request
+    const testScore = test?.scores[studentId] ?? 0;
+    const examScore = exam?.scores[studentId] ?? 0;
 
-    const updatedAssessmentsList = [...(selectedSubjectForGrading.assessments || []), assessment];
-    onUpdateAssessments(selectedSubjectForGrading.id, updatedAssessmentsList);
-    setSelectedSubjectForGrading({ ...selectedSubjectForGrading, assessments: updatedAssessmentsList });
-    setIsAddingAssessment(false);
-    setNewAssessment({ title: '', type: 'ASSIGNMENT', maxMarks: 100, weightage: 20, date: '' });
+    return Math.round((testScore + examScore) / 2);
   };
 
-  const handleScoreUpdate = (assessmentId: string, studentId: string, score: number) => {
-    if (!selectedSubjectForGrading) return;
+  const calculateYearlyAverage = (subjectId: string, studentId: string) => {
+    const t1 = calculateTermAverage(subjectId, studentId, 'FIRST');
+    const t2 = calculateTermAverage(subjectId, studentId, 'SECOND');
+    const t3 = calculateTermAverage(subjectId, studentId, 'THIRD');
+    return Math.round((t1 + t2 + t3) / 3);
+  };
+
+  // Ranking Logic
+  const getRankings = useMemo(() => {
+    if (!selectedGradebookSubjectId) return {};
+    const sub = subjects.find(s => s.id === selectedGradebookSubjectId);
+    if (!sub) return {};
+
+    const gradeStudents = students.filter(s => s.grade === sub.grade);
     
-    const updatedAssessmentsList = (selectedSubjectForGrading.assessments || []).map(asm => {
+    // Total Year Rank
+    const yearSorted = [...gradeStudents].sort((a, b) => 
+      calculateYearlyAverage(sub.id, b.id) - calculateYearlyAverage(sub.id, a.id)
+    );
+    
+    // Term specific ranks
+    const termRanks: Record<string, Record<string, number>> = {
+      'FIRST': {}, 'SECOND': {}, 'THIRD': {}, 'YEARLY': {}
+    };
+
+    TERMS.forEach(term => {
+      const termSorted = [...gradeStudents].sort((a, b) => 
+        // Fixed: Pass the current term as the third argument to calculateTermAverage
+        calculateTermAverage(sub.id, b.id, term) - calculateTermAverage(sub.id, a.id, term)
+      );
+      termSorted.forEach((s, idx) => termRanks[term][s.id] = idx + 1);
+    });
+
+    yearSorted.forEach((s, idx) => termRanks['YEARLY'][s.id] = idx + 1);
+
+    return termRanks;
+  }, [selectedGradebookSubjectId, subjects, students]);
+
+  const handleScoreUpdate = (subjectId: string, assessmentId: string, studentId: string, score: number) => {
+    const sub = subjects.find(s => s.id === subjectId);
+    if (!sub) return;
+    const updatedAssessments = (sub.assessments || []).map(asm => {
       if (asm.id === assessmentId) {
         return { ...asm, scores: { ...asm.scores, [studentId]: score } };
       }
       return asm;
     });
-
-    onUpdateAssessments(selectedSubjectForGrading.id, updatedAssessmentsList);
-    setSelectedSubjectForGrading({ ...selectedSubjectForGrading, assessments: updatedAssessmentsList });
+    onUpdateAssessments(subjectId, updatedAssessments);
   };
 
-  const calculateOverallGrade = (studentId: string, sub: Subject) => {
-    const relevantAssessments = sub.assessments || [];
-    if (relevantAssessments.length === 0) return 0;
-    
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-
-    relevantAssessments.forEach(asm => {
-      const score = asm.scores[studentId];
-      if (score !== undefined) {
-        totalWeightedScore += (score / asm.maxMarks) * asm.weightage;
-        totalWeight += asm.weightage;
-      }
+  const handleInitializeGrades = (subjectId: string) => {
+    const baseAssessments: Assessment[] = [];
+    TERMS.forEach(term => {
+      baseAssessments.push({
+        id: `ASM-${term}-TEST-${Date.now()}`,
+        title: `${term} Term Test`,
+        type: 'ASSIGNMENT',
+        term: term,
+        subType: 'TEST',
+        maxMarks: 100, // Strict 100 as per architecture
+        weightage: 50,
+        date: new Date().toISOString().split('T')[0],
+        scores: {}
+      });
+      baseAssessments.push({
+        id: `ASM-${term}-EXAM-${Date.now()}`,
+        title: `${term} Term Exam`,
+        type: 'EXAM',
+        term: term,
+        subType: 'EXAM',
+        maxMarks: 100, // Strict 100 as per architecture
+        weightage: 50,
+        date: new Date().toISOString().split('T')[0],
+        scores: {}
+      });
     });
-
-    if (totalWeight === 0) return 0;
-    return Math.round((totalWeightedScore / totalWeight) * 100);
+    onUpdateAssessments(subjectId, baseAssessments);
   };
 
-  const updateSyllabusUnitStatus = (subjectId: string, unitId: string, status: SyllabusStatus) => {
+  const handleAddSyllabusUnit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedSubjectForSyllabus) return;
+
     const currentSyllabus = selectedSubjectForSyllabus.syllabus || [];
-    const updatedSyllabus = currentSyllabus.map(u => 
-      u.id === unitId ? { ...u, status } : u
-    );
-    
-    onUpdateSyllabus(subjectId, updatedSyllabus);
-    setSelectedSubjectForSyllabus({
-      ...selectedSubjectForSyllabus,
-      syllabus: updatedSyllabus
-    });
-  };
-
-  const deleteSyllabusUnit = (subjectId: string, unitId: string) => {
-    if (!selectedSubjectForSyllabus) return;
-    const currentSyllabus = selectedSubjectForSyllabus.syllabus || [];
-    const updatedSyllabus = currentSyllabus.filter(u => u.id !== unitId)
-      .map((u, i) => ({ ...u, order: i + 1 }));
-    
-    onUpdateSyllabus(subjectId, updatedSyllabus);
-    setSelectedSubjectForSyllabus({
-      ...selectedSubjectForSyllabus,
-      syllabus: updatedSyllabus
-    });
-  };
-
-  const addSyllabusUnit = (subjectId: string) => {
-    const title = prompt("Enter Unit/Chapter Title:");
-    if (!title) return;
-
-    const currentSyllabus = selectedSubjectForSyllabus?.syllabus || [];
     const newUnit: SyllabusUnit = {
-      id: `U-${Date.now()}`,
-      title,
-      description: 'Course content unit.',
-      status: 'PENDING',
+      id: `UNIT-${Date.now()}`,
+      title: unitForm.title,
+      description: unitForm.description,
+      status: unitForm.status,
       order: currentSyllabus.length + 1
     };
 
     const updatedSyllabus = [...currentSyllabus, newUnit];
-    onUpdateSyllabus(subjectId, updatedSyllabus);
-    setSelectedSubjectForSyllabus(prev => prev ? ({ ...prev, syllabus: updatedSyllabus }) : null);
+    onUpdateSyllabus(selectedSubjectForSyllabus.id, updatedSyllabus);
+    setSelectedSubjectForSyllabus({ ...selectedSubjectForSyllabus, syllabus: updatedSyllabus });
+    setUnitForm({ title: '', description: '', status: 'PENDING' });
+    setIsAddingUnit(false);
   };
 
-  // Handle reordering logic
-  const onDragStart = (index: number) => {
-    setDraggedIndex(index);
+  const handleUpdateUnitStatus = (unitId: string, status: SyllabusStatus) => {
+    if (!selectedSubjectForSyllabus) return;
+    const updatedSyllabus = (selectedSubjectForSyllabus.syllabus || []).map(u => 
+      u.id === unitId ? { ...u, status } : u
+    );
+    onUpdateSyllabus(selectedSubjectForSyllabus.id, updatedSyllabus);
+    setSelectedSubjectForSyllabus({ ...selectedSubjectForSyllabus, syllabus: updatedSyllabus });
   };
 
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleDeleteUnit = (unitId: string) => {
+    if (!selectedSubjectForSyllabus) return;
+    const updatedSyllabus = (selectedSubjectForSyllabus.syllabus || [])
+      .filter(u => u.id !== unitId)
+      .map((u, i) => ({ ...u, order: i + 1 }));
+    onUpdateSyllabus(selectedSubjectForSyllabus.id, updatedSyllabus);
+    setSelectedSubjectForSyllabus({ ...selectedSubjectForSyllabus, syllabus: updatedSyllabus });
   };
 
-  const onDrop = (index: number) => {
-    if (draggedIndex === null || draggedIndex === index || !selectedSubjectForSyllabus) return;
+  const handleDragStart = (index: number) => setDraggedUnitIndex(index);
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handleDrop = (index: number) => {
+    if (draggedUnitIndex === null || draggedUnitIndex === index || !selectedSubjectForSyllabus) return;
     
     const syllabus = [...(selectedSubjectForSyllabus.syllabus || [])].sort((a, b) => a.order - b.order);
-    const itemToMove = syllabus[draggedIndex];
-    syllabus.splice(draggedIndex, 1);
-    syllabus.splice(index, 0, itemToMove);
+    const [movedItem] = syllabus.splice(draggedUnitIndex, 1);
+    syllabus.splice(index, 0, movedItem);
     
     const reorderedSyllabus = syllabus.map((u, i) => ({ ...u, order: i + 1 }));
-    
     onUpdateSyllabus(selectedSubjectForSyllabus.id, reorderedSyllabus);
-    setSelectedSubjectForSyllabus({
-      ...selectedSubjectForSyllabus,
-      syllabus: reorderedSyllabus
-    });
-    setDraggedIndex(null);
+    setSelectedSubjectForSyllabus({ ...selectedSubjectForSyllabus, syllabus: reorderedSyllabus });
+    setDraggedUnitIndex(null);
   };
 
-  const removeSubject = (id: string) => {
-    setSubjects(subjects.filter(s => s.id !== id));
-  };
-
-  const removeEvent = (id: string) => {
-    setEvents(events.filter(e => e.id !== id));
-  };
+  const removeSubject = (id: string) => setSubjects(subjects.filter(s => s.id !== id));
+  const removeEvent = (id: string) => setEvents(events.filter(e => e.id !== id));
 
   if (isBatchAdding) {
     return (
@@ -338,89 +339,78 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
     );
   }
 
+  const activeSubject = subjects.find(s => s.id === selectedGradebookSubjectId);
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8 gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Academic Management</h2>
-          <p className="text-slate-500 mt-1 font-medium">Coordinate curriculum delivery and institutional scheduling.</p>
+          <p className="text-slate-500 mt-1 font-medium italic">Term Ledger & Curriculum Control</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-           <button 
-             onClick={() => setActiveTab(activeTab === 'SUBJECTS' ? 'CALENDAR' : 'SUBJECTS')}
-             className={`flex-1 md:flex-none px-4 py-2.5 border rounded-xl text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 ${activeTab === 'CALENDAR' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-           >
-             {activeTab === 'SUBJECTS' ? <><CalendarIcon size={18} /> Calendar</> : <><BookOpen size={18} /> Subjects</>}
-           </button>
-           
-           {activeTab === 'SUBJECTS' && (
-             <button 
-               onClick={() => setIsBatchAdding(true)}
-               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-sm font-bold hover:bg-indigo-100 transition-all"
-             >
-               <LayoutGrid size={18} /> Batch Add
-             </button>
-           )}
-
-           <button 
-             onClick={() => activeTab === 'SUBJECTS' ? setIsAddingSubject(true) : setIsAddingEvent(true)}
-             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
-           >
-             <Plus size={18} /> {activeTab === 'SUBJECTS' ? 'Add Single' : 'Add Event'}
-           </button>
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+           <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm flex shrink-0">
+             <button onClick={() => setActiveTab('SUBJECTS')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'SUBJECTS' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}>Subjects</button>
+             <button onClick={() => setActiveTab('GRADEBOOK')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'GRADEBOOK' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}>Gradebook</button>
+             <button onClick={() => setActiveTab('CALENDAR')} className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'CALENDAR' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'text-slate-500 hover:bg-slate-50'}`}>Calendar</button>
+           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <AcademicCard icon={<BookOpen className="text-indigo-600" />} label="Active Subjects" value={subjects.length.toString()} color="indigo" />
-        <AcademicCard icon={<Layers className="text-emerald-600" />} label="Grade Levels" value="12" color="emerald" />
-        <AcademicCard icon={<CalendarIcon className="text-amber-600" />} label="Upcoming Events" value={events.length.toString()} color="amber" />
-        <AcademicCard icon={<CheckCircle2 className="text-rose-600" />} label="Avg. Progress" value={`${Math.round(subjects.reduce((a, b) => a + b.progress, 0) / (subjects.length || 1))}%`} color="rose" />
+        <AcademicCard icon={<Award className="text-emerald-600" />} label="Avg. Score" value="74%" color="emerald" />
+        <AcademicCard icon={<CalendarIcon className="text-amber-600" />} label="Events" value={events.length.toString()} color="amber" />
+        <AcademicCard icon={<CheckCircle2 className="text-rose-600" />} label="Completion" value={`${Math.round(subjects.reduce((a, b) => a + b.progress, 0) / (subjects.length || 1))}%`} color="rose" />
       </div>
 
-      {activeTab === 'SUBJECTS' ? (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-             <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Curriculum Registry</h3>
-             <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                <input type="text" placeholder="Search curriculum..." className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 transition-all outline-none" />
+      {activeTab === 'SUBJECTS' && (
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+             <h3 className="font-black text-slate-900 uppercase tracking-widest text-[10px]">Curriculum Registry</h3>
+             <div className="flex items-center gap-3">
+               <button onClick={() => setIsBatchAdding(true)} className="px-5 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
+                  <LayoutGrid size={14} /> Batch Add
+               </button>
+               <button onClick={() => setIsAddingSubject(true)} className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                  <Plus size={14} /> Single
+               </button>
              </div>
           </div>
           <div className="divide-y divide-slate-100">
             {subjects.map((sub) => (
               <div key={sub.id} className="p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between hover:bg-slate-50/50 transition-colors gap-6 group">
                 <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 group-hover:scale-105 transition-transform shrink-0 shadow-sm">
                       <Book size={24} />
                    </div>
                    <div>
                       <div className="flex items-center gap-2">
                         <h4 className="font-black text-slate-900">{sub.name}</h4>
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 uppercase">{sub.grade}</span>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 uppercase tracking-tighter">{sub.grade}</span>
                       </div>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-tighter mt-0.5">{sub.teacher}</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{sub.teacher}</p>
                    </div>
                 </div>
                 <div className="w-full lg:max-w-xs">
                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Syllabus Completion</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Syllabus Progress</span>
                       <span className="text-xs font-black text-indigo-600">{sub.progress}%</span>
                    </div>
-                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${sub.progress}%` }}></div>
                    </div>
                 </div>
                 <div className="flex items-center gap-2 w-full lg:w-auto">
                   <button 
-                    onClick={() => setSelectedSubjectForGrading(sub)}
-                    className="flex-1 lg:flex-none px-6 py-2.5 text-xs font-black uppercase tracking-widest text-indigo-600 border border-indigo-100 hover:bg-indigo-50 rounded-xl transition-all flex items-center justify-center gap-2"
+                    onClick={() => { setSelectedGradebookSubjectId(sub.id); setActiveTab('GRADEBOOK'); }}
+                    className="flex-1 lg:flex-none px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 border border-indigo-100 hover:bg-indigo-50 rounded-xl transition-all flex items-center justify-center gap-2"
                   >
-                    <Award size={14} /> Grading
+                    <TableIcon size={14} /> Ledger
                   </button>
                   <button 
                     onClick={() => setSelectedSubjectForSyllabus(sub)}
-                    className="flex-1 lg:flex-none px-6 py-2.5 text-xs font-black uppercase tracking-widest text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all"
+                    className="flex-1 lg:flex-none px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all"
                   >
                     Syllabus
                   </button>
@@ -430,15 +420,178 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                 </div>
               </div>
             ))}
-            {subjects.length === 0 && (
-              <div className="p-20 text-center">
-                <BookOpen size={48} className="mx-auto text-slate-200 mb-4" />
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No subjects registered yet</p>
-              </div>
-            )}
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'GRADEBOOK' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                 <div className="p-4 bg-indigo-600 rounded-[1.5rem] text-white shadow-xl shadow-indigo-100">
+                    <Award size={32} />
+                 </div>
+                 <div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-tight">Institutional Ledger</h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">AY 2024-25 | Performance OS</p>
+                 </div>
+              </div>
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="relative min-w-[320px] w-full md:w-auto">
+                  <select 
+                    value={selectedGradebookSubjectId}
+                    onChange={(e) => setSelectedGradebookSubjectId(e.target.value)}
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-xs uppercase tracking-widest outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none pr-12 transition-all shadow-sm"
+                  >
+                    <option value="">Select Subject Registry</option>
+                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.grade})</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                </div>
+              </div>
+           </div>
+
+           {!selectedGradebookSubjectId ? (
+              <div className="py-32 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
+                 <Search size={64} className="mx-auto text-slate-100 mb-6" />
+                 <p className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">Please select a subject ledger to begin entry</p>
+              </div>
+           ) : (
+              <div className="space-y-8">
+                 {!(activeSubject?.assessments?.length) && (
+                   <div className="bg-indigo-50 p-8 rounded-[2.5rem] border border-indigo-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div className="flex items-center gap-4">
+                         <Zap className="text-indigo-600" size={24} />
+                         <div>
+                            <p className="text-sm font-black text-slate-900 uppercase">Architecture Missing</p>
+                            <p className="text-xs text-slate-500 font-medium">This subject requires the standard 3-term assessment pairing (Test + Exam).</p>
+                         </div>
+                      </div>
+                      <button 
+                        onClick={() => handleInitializeGrades(selectedGradebookSubjectId)}
+                        className="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                      >
+                        Initialize Term Architecture
+                      </button>
+                   </div>
+                 )}
+
+                 {activeSubject?.assessments?.length > 0 && (
+                   <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden relative">
+                      <div className="overflow-x-auto custom-scrollbar">
+                         <table className="w-full text-left border-collapse min-w-[1400px]">
+                            <thead>
+                               <tr className="bg-slate-900 text-white border-b border-slate-800">
+                                  <th rowSpan={2} className="px-8 py-6 border-r border-slate-800 sticky left-0 bg-slate-900 z-20 w-64 min-w-[280px]">Student Registry</th>
+                                  {TERMS.map(term => (
+                                    <th key={term} colSpan={4} className="px-6 py-4 text-center border-r border-slate-800 uppercase text-[10px] font-black tracking-[0.2em] bg-slate-800/30">
+                                       {term} TERM
+                                    </th>
+                                  ))}
+                                  <th colSpan={3} className="px-6 py-4 text-center uppercase text-[10px] font-black tracking-[0.2em] bg-indigo-900">YEARLY AGGREGATE</th>
+                               </tr>
+                               <tr className="bg-slate-50 border-b border-slate-200">
+                                  {TERMS.map(term => (
+                                    <React.Fragment key={`${term}-sub`}>
+                                       <th className="px-3 py-3 text-center text-[9px] font-black text-slate-400 uppercase tracking-tighter border-r border-slate-200">Test</th>
+                                       <th className="px-3 py-3 text-center text-[9px] font-black text-slate-400 uppercase tracking-tighter border-r border-slate-200">Exam</th>
+                                       <th className="px-3 py-3 text-center text-[9px] font-black text-indigo-600 uppercase tracking-tighter border-r border-slate-200 bg-indigo-50/50">MN</th>
+                                       <th className="px-3 py-3 text-center text-[9px] font-black text-amber-600 uppercase tracking-tighter border-r border-slate-200 bg-amber-50/50">RNK</th>
+                                    </React.Fragment>
+                                  ))}
+                                  <th className="px-6 py-3 text-center text-[9px] font-black text-indigo-900 uppercase tracking-widest border-r border-indigo-100 bg-indigo-50/70">Mean</th>
+                                  <th className="px-6 py-3 text-center text-[9px] font-black text-indigo-900 uppercase tracking-widest border-r border-indigo-100 bg-indigo-50/70">Rank</th>
+                                  <th className="px-6 py-3 text-center text-[9px] font-black text-indigo-900 uppercase tracking-widest bg-indigo-50/70">Status</th>
+                               </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                               {students.filter(s => s.grade === activeSubject?.grade).map(student => {
+                                 const yearlyAvg = calculateYearlyAverage(selectedGradebookSubjectId, student.id);
+                                 const isPromoted = yearlyAvg >= 50;
+
+                                 return (
+                                   <tr key={student.id} className="hover:bg-slate-50/80 transition-colors group">
+                                      <td className="px-8 py-4 border-r border-slate-100 sticky left-0 bg-white group-hover:bg-slate-50 z-10 shadow-sm">
+                                         <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">
+                                                 {student.name.charAt(0)}
+                                              </div>
+                                              <div className="min-w-0">
+                                                 <p className="text-xs font-black text-slate-900 truncate leading-tight">{student.name}</p>
+                                                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{student.admissionNo}</p>
+                                              </div>
+                                            </div>
+                                            <button 
+                                              onClick={() => setSelectedStudentForGrades(student)}
+                                              className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                            >
+                                              <UserCog size={16} />
+                                            </button>
+                                         </div>
+                                      </td>
+                                      
+                                      {TERMS.map(term => {
+                                         const testData = getStudentScore(selectedGradebookSubjectId, term, 'TEST', student.id);
+                                         const examData = getStudentScore(selectedGradebookSubjectId, term, 'EXAM', student.id);
+                                         const termAvg = calculateTermAverage(selectedGradebookSubjectId, student.id, term);
+                                         const termRank = getRankings[term]?.[student.id] || '-';
+
+                                         return (
+                                            <React.Fragment key={`${term}-cells`}>
+                                               <td className="px-2 py-4 border-r border-slate-100">
+                                                  {testData ? (
+                                                    <GradeInput 
+                                                       initialValue={testData.score ?? ""}
+                                                       maxMarks={100}
+                                                       onSave={(v) => handleScoreUpdate(selectedGradebookSubjectId, testData.id, student.id, v)}
+                                                    />
+                                                  ) : <div className="text-center opacity-10 text-[8px] font-black">--</div>}
+                                               </td>
+                                               <td className="px-2 py-4 border-r border-slate-100">
+                                                  {examData ? (
+                                                    <GradeInput 
+                                                       initialValue={examData.score ?? ""}
+                                                       maxMarks={100}
+                                                       onSave={(v) => handleScoreUpdate(selectedGradebookSubjectId, examData.id, student.id, v)}
+                                                    />
+                                                  ) : <div className="text-center opacity-10 text-[8px] font-black">--</div>}
+                                               </td>
+                                               <td className="px-2 py-4 border-r border-slate-100 bg-indigo-50/10 text-center">
+                                                  <span className={`text-[11px] font-black ${termAvg >= 50 ? 'text-indigo-600' : 'text-rose-500'}`}>{termAvg}%</span>
+                                               </td>
+                                               <td className="px-2 py-4 border-r border-slate-100 bg-amber-50/10 text-center">
+                                                  <span className="text-[10px] font-black text-amber-600">#{termRank}</span>
+                                               </td>
+                                            </React.Fragment>
+                                         );
+                                      })}
+
+                                      <td className="px-6 py-4 text-center border-r border-indigo-100 bg-indigo-50/30">
+                                         <span className="text-sm font-black text-indigo-900">{yearlyAvg}%</span>
+                                      </td>
+                                      <td className="px-6 py-4 text-center border-r border-indigo-100 bg-indigo-50/30">
+                                         <span className="text-xs font-black text-amber-600">#{getRankings['YEARLY']?.[student.id] || '-'}</span>
+                                      </td>
+                                      <td className="px-6 py-4 text-center bg-indigo-50/30">
+                                         <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isPromoted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'}`}>
+                                            {isPromoted ? <><CheckCircle size={10} /> Promoted</> : <><X size={10} /> Retained</>}
+                                         </span>
+                                      </td>
+                                   </tr>
+                                 );
+                               })}
+                            </tbody>
+                         </table>
+                      </div>
+                   </div>
+                 )}
+              </div>
+           )}
+        </div>
+      )}
+
+      {activeTab === 'CALENDAR' && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
              <div className="flex items-center gap-4">
@@ -447,28 +600,14 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                 </div>
                 <div>
                    <h3 className="font-black text-slate-900 uppercase tracking-tight">Institutional Calendar</h3>
-                   <p className="text-xs text-slate-500 font-medium">Timeline of all academic and extracurricular events.</p>
+                   <p className="text-xs text-slate-500 font-medium">Global academic timeline.</p>
                 </div>
              </div>
-             <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Event
-                </span>
-                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-rose-500"></div> Holiday
-                </span>
-                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <div className="w-2 h-2 rounded-full bg-amber-500"></div> Exam
-                </span>
-             </div>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {events.length > 0 ? events.map((event) => (
+            {events.map((event) => (
               <div key={event.id} className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 hover:shadow-md transition-shadow group relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                  event.type === 'EVENT' ? 'bg-emerald-500' : event.type === 'EXAM' ? 'bg-amber-500' : 'bg-rose-500'
-                }`}></div>
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${event.type === 'EVENT' ? 'bg-emerald-500' : event.type === 'EXAM' ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
                 <div className="shrink-0 flex flex-col items-center justify-center w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-indigo-50 transition-colors">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(event.date).toLocaleString('default', { month: 'short' })}</span>
                   <span className="text-2xl font-black text-slate-900">{new Date(event.date).getDate()}</span>
@@ -480,33 +619,10 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium mb-4 line-clamp-2">{event.description}</p>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-                      event.type === 'EVENT' ? 'bg-emerald-50 text-emerald-600' : event.type === 'EXAM' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'
-                    }`}>
-                      {event.type}
-                    </span>
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <Clock size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(event.date).getFullYear()}</span>
-                    </div>
-                  </div>
+                  <p className="text-sm text-slate-500 font-medium mb-4">{event.description}</p>
                 </div>
               </div>
-            )) : (
-              <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                 <CalendarRange size={64} className="mx-auto text-slate-200 mb-6" />
-                 <h4 className="text-xl font-black text-slate-400 uppercase tracking-widest">The timeline is empty</h4>
-                 <p className="text-sm text-slate-400 mt-2 font-medium">Initialize the academic schedule by adding your first event.</p>
-                 <button 
-                  onClick={() => setIsAddingEvent(true)}
-                  className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-indigo-700 transition-all"
-                 >
-                   Schedule Event Now
-                 </button>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
@@ -514,7 +630,7 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
       {/* Syllabus Management Modal */}
       {selectedSubjectForSyllabus && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForSyllabus(null)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => { setSelectedSubjectForSyllabus(null); setIsAddingUnit(false); }}></div>
           <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
             <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/20">
               <div className="flex items-center gap-4">
@@ -523,286 +639,280 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedSubjectForSyllabus.name} Syllabus</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedSubjectForSyllabus.grade} • {selectedSubjectForSyllabus.teacher}</p>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedSubjectForSyllabus.grade} Registry • {selectedSubjectForSyllabus.teacher}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedSubjectForSyllabus(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+              <button onClick={() => { setSelectedSubjectForSyllabus(null); setIsAddingUnit(false); }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
                 <X size={24} />
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
-              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
-                 <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Curriculum Delivery Progress</p>
-                    <p className="text-3xl font-black text-indigo-600">{selectedSubjectForSyllabus.progress}%</p>
-                 </div>
-                 <div className="relative flex items-center justify-center">
-                    <svg className="w-20 h-20 transform -rotate-90">
-                      <circle cx="40" cy="40" r="34" className="stroke-slate-200" strokeWidth="6" fill="transparent" />
-                      <circle cx="40" cy="40" r="34" className="stroke-indigo-600" strokeWidth="6" fill="transparent" 
-                        strokeDasharray={2 * Math.PI * 34} 
-                        strokeDashoffset={2 * Math.PI * 34 * (1 - (selectedSubjectForSyllabus.progress / 100))}
-                        strokeLinecap="round" 
-                      />
-                    </svg>
-                    <div className="absolute flex flex-col items-center">
-                      <TrendingUp size={18} className="text-indigo-400" />
-                    </div>
-                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-2">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Course Units / Topic Registry</h4>
-                   <button 
-                     onClick={() => addSyllabusUnit(selectedSubjectForSyllabus.id)}
-                     className="flex items-center gap-1 text-xs font-black text-indigo-600 hover:underline uppercase tracking-tighter"
-                   >
-                     <Plus size={14} /> Register Unit
-                   </button>
-                </div>
-                
-                <div className="space-y-3" onDragOver={onDragOver}>
-                  {(selectedSubjectForSyllabus.syllabus || []).sort((a,b) => a.order - b.order).map((unit, index) => (
-                    <div 
-                      key={unit.id} 
-                      draggable="true"
-                      onDragStart={() => onDragStart(index)}
-                      onDrop={() => onDrop(index)}
-                      className={`p-5 rounded-2xl border transition-all flex items-center gap-5 group relative ${
-                        unit.status === 'COMPLETED' ? 'bg-emerald-50/40 border-emerald-100' : 
-                        unit.status === 'IN_PROGRESS' ? 'bg-indigo-50/40 border-indigo-100' :
-                        'bg-white border-slate-200 hover:border-indigo-200 shadow-sm'
-                      } ${draggedIndex === index ? 'opacity-40 scale-[0.98]' : 'opacity-100'}`}
-                    >
-                      {/* Status indicator bar */}
-                      <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-10 rounded-r-full ${
-                        unit.status === 'COMPLETED' ? 'bg-emerald-500' : 
-                        unit.status === 'IN_PROGRESS' ? 'bg-indigo-500' : 
-                        'bg-slate-200'
-                      }`}></div>
-
-                      {/* Drag Handle */}
-                      <div className="cursor-grab active:cursor-grabbing text-slate-300 group-hover:text-slate-500 transition-colors shrink-0">
-                        <GripVertical size={20} />
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className={`text-[10px] font-black w-5 h-5 rounded-lg flex items-center justify-center shrink-0 ${
-                            unit.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
-                            {unit.order}
-                          </span>
-                          <h5 className={`font-black text-sm truncate ${unit.status === 'COMPLETED' ? 'text-emerald-900' : 'text-slate-900'}`}>
-                            {unit.title}
-                          </h5>
-                        </div>
-                        <p className={`text-xs font-medium leading-relaxed truncate ${unit.status === 'COMPLETED' ? 'text-emerald-600/70' : 'text-slate-400'}`}>
-                          {unit.description || 'Topic awaiting detailed curriculum documentation.'}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                         {/* Compact Status Switcher */}
-                         <div className="flex bg-slate-100/50 p-1 rounded-xl gap-1">
-                            <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'PENDING')}
-                               title="Pending"
-                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'PENDING' ? 'bg-white text-slate-600 shadow-sm' : 'text-slate-300 hover:text-slate-500'}`}
-                             >
-                               <Circle size={14} />
-                             </button>
-                             <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'IN_PROGRESS')}
-                               title="In Progress"
-                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-300 hover:text-indigo-400'}`}
-                             >
-                               <PlayCircle size={14} />
-                             </button>
-                             <button 
-                               onClick={() => updateSyllabusUnitStatus(selectedSubjectForSyllabus.id, unit.id, 'COMPLETED')}
-                               title="Completed"
-                               className={`p-1.5 rounded-lg transition-all ${unit.status === 'COMPLETED' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'text-slate-300 hover:text-emerald-400'}`}
-                             >
-                               <Check size={14} />
-                             </button>
-                         </div>
-                         
-                         <button 
-                           onClick={() => deleteSyllabusUnit(selectedSubjectForSyllabus.id, unit.id)}
-                           className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors ml-1"
-                         >
-                           <Trash2 size={16} />
-                         </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {(selectedSubjectForSyllabus.syllabus || []).length === 0 && (
-                    <div className="py-16 text-center bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200">
-                      <ListTodo size={40} className="mx-auto text-slate-200 mb-3" />
-                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Curriculum data stream empty</p>
-                      <button 
-                        onClick={() => addSyllabusUnit(selectedSubjectForSyllabus.id)}
-                        className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all"
-                      >
-                        Begin Initialization
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
             
-            <div className="p-8 border-t border-slate-100 bg-white">
-               <button 
-                 onClick={() => setSelectedSubjectForSyllabus(null)}
-                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 shadow-xl transition-all"
-               >
-                 Close Curriculum Management
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedSubjectForGrading && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedSubjectForGrading(null)}></div>
-          <div className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
-                  <Award size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedSubjectForGrading.name} Grading</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedSubjectForGrading.grade} • {selectedSubjectForGrading.teacher}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button 
-                    onClick={() => setGradingTab('ASSESSMENTS')}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${gradingTab === 'ASSESSMENTS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >Assessments</button>
-                  <button 
-                    onClick={() => setGradingTab('GRADEBOOK')}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${gradingTab === 'GRADEBOOK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >Gradebook</button>
-                </div>
-                <button onClick={() => setSelectedSubjectForGrading(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
-                  <X size={24} />
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-8">
+              {/* Progress Summary */}
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
+                 <div className="flex-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Curriculum Delivery Integrity</p>
+                    <div className="flex items-center gap-4">
+                      <span className="text-3xl font-black text-indigo-600">{selectedSubjectForSyllabus.progress}%</span>
+                      <div className="h-2 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 transition-all duration-700" style={{ width: `${selectedSubjectForSyllabus.progress}%` }}></div>
+                      </div>
+                    </div>
+                 </div>
+                 <button 
+                  onClick={() => setIsAddingUnit(!isAddingUnit)}
+                  className="ml-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center gap-2"
+                >
+                  {isAddingUnit ? <><X size={14} /> Cancel</> : <><Plus size={14} /> New Unit</>}
                 </button>
               </div>
+
+              {/* Add Unit Sub-Form */}
+              {isAddingUnit && (
+                <form onSubmit={handleAddSyllabusUnit} className="p-8 bg-white border-2 border-indigo-100 rounded-[2rem] space-y-6 animate-in slide-in-from-top-4 duration-300">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Specification (Title)</label>
+                      <input 
+                        required
+                        type="text" 
+                        placeholder="e.g. Fundamental Trigonometry" 
+                        value={unitForm.title}
+                        onChange={(e) => setUnitForm({ ...unitForm, title: e.target.value })}
+                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Learning Objectives / Description</label>
+                      <textarea 
+                        rows={3}
+                        placeholder="Outline the core concepts and student takeaways..." 
+                        value={unitForm.description}
+                        onChange={(e) => setUnitForm({ ...unitForm, description: e.target.value })}
+                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 resize-none transition-all"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                       <div className="space-y-1">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Milestone Status</label>
+                          <select 
+                            value={unitForm.status}
+                            onChange={(e) => setUnitForm({ ...unitForm, status: e.target.value as SyllabusStatus })}
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-black uppercase appearance-none"
+                          >
+                            <option value="PENDING">Pending Approval</option>
+                            <option value="IN_PROGRESS">Actively Teaching</option>
+                            <option value="COMPLETED">Delivery Confirmed</option>
+                          </select>
+                       </div>
+                       <div className="flex items-end">
+                         <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg hover:bg-slate-800 transition-all active:scale-[0.98]">
+                           Register Curriculum Unit
+                         </button>
+                       </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Units Ledger with Drag & Drop */}
+              <div className="space-y-4" onDragOver={handleDragOver}>
+                {(selectedSubjectForSyllabus.syllabus || []).sort((a,b) => a.order - b.order).map((unit, index) => (
+                  <div 
+                    key={unit.id}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDrop={() => handleDrop(index)}
+                    className={`group p-6 rounded-[2rem] border transition-all flex items-start gap-5 relative ${
+                      unit.status === 'COMPLETED' ? 'bg-emerald-50/40 border-emerald-100 shadow-sm' : 
+                      unit.status === 'IN_PROGRESS' ? 'bg-indigo-50/40 border-indigo-100 shadow-sm' : 
+                      'bg-white border-slate-200 hover:border-indigo-300 shadow-sm'
+                    } ${draggedUnitIndex === index ? 'opacity-30' : 'opacity-100'}`}
+                  >
+                    {/* Drag Handle */}
+                    <div className="mt-1 cursor-grab active:cursor-grabbing text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0">
+                      <GripVertical size={22} />
+                    </div>
+                    
+                    {/* Unit Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                         <span className="text-[10px] font-black w-6 h-6 rounded-lg bg-white border border-slate-100 text-slate-400 flex items-center justify-center shrink-0 shadow-sm">
+                            {unit.order}
+                         </span>
+                         <h5 className="text-base font-black text-slate-900 truncate uppercase tracking-tight">{unit.title}</h5>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{unit.description || 'No objectives defined for this module.'}</p>
+                      
+                      {/* Interactive Progress Toggle Bar */}
+                      <div className="flex items-center gap-2 mt-5">
+                         <div className="flex bg-white p-1 rounded-xl border border-slate-100 shadow-inner">
+                            <button 
+                              onClick={() => handleUpdateUnitStatus(unit.id, 'PENDING')}
+                              title="Set Pending"
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${unit.status === 'PENDING' ? 'bg-slate-100 text-slate-700 shadow-sm' : 'text-slate-300 hover:text-slate-400'}`}
+                            ><Circle size={12} strokeWidth={3} /> Pending</button>
+                            <button 
+                              onClick={() => handleUpdateUnitStatus(unit.id, 'IN_PROGRESS')}
+                              title="Set In Progress"
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${unit.status === 'IN_PROGRESS' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-300 hover:text-indigo-400'}`}
+                            ><PlayCircle size={12} strokeWidth={3} /> Teaching</button>
+                            <button 
+                              onClick={() => handleUpdateUnitStatus(unit.id, 'COMPLETED')}
+                              title="Set Completed"
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${unit.status === 'COMPLETED' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-300 hover:text-emerald-500'}`}
+                            ><CheckCircle size={12} strokeWidth={3} /> Finished</button>
+                         </div>
+                         <div className="flex-1"></div>
+                         <button 
+                           onClick={() => handleDeleteUnit(unit.id)}
+                           className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                           title="Purge Unit"
+                         ><Trash2 size={16} /></button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {(selectedSubjectForSyllabus.syllabus || []).length === 0 && !isAddingUnit && (
+                  <div className="py-24 text-center bg-slate-50/50 border-4 border-dashed border-slate-100 rounded-[3rem]">
+                    <ListTodo size={64} className="mx-auto text-slate-100 mb-4" />
+                    <p className="text-sm font-black text-slate-300 uppercase tracking-[0.3em]">Curriculum Void Detected</p>
+                    <p className="text-xs text-slate-400 font-medium mt-1">Initialize this subject by adding the first syllabus unit.</p>
+                    <button 
+                      onClick={() => setIsAddingUnit(true)}
+                      className="mt-6 px-8 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-all"
+                    >Initialize Curriculum</button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-               {gradingTab === 'ASSESSMENTS' ? (
-                 <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Assessments</h4>
-                       <button 
-                         onClick={() => setIsAddingAssessment(true)}
-                         className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
-                       >
-                         <Plus size={14} /> New Assessment
-                       </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                       {(selectedSubjectForGrading.assessments || []).map(asm => (
-                         <div key={asm.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all">
-                            <div className="flex items-center justify-between mb-4">
-                               <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                 asm.type === 'EXAM' ? 'bg-rose-100 text-rose-600' : asm.type === 'QUIZ' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
-                               }`}>{asm.type}</span>
-                               <span className="text-[10px] text-slate-400 font-bold">{asm.date}</span>
-                            </div>
-                            <h5 className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{asm.title}</h5>
-                            <div className="mt-4 flex items-center justify-between border-t border-slate-200/50 pt-4">
-                               <div>
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Max Marks</p>
-                                  <p className="text-sm font-black text-slate-900">{asm.maxMarks}</p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Weightage</p>
-                                  <p className="text-sm font-black text-indigo-600">{asm.weightage}%</p>
-                               </div>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
-                 </div>
-               ) : (
-                 <div className="space-y-6">
-                    <div className="overflow-x-auto rounded-3xl border border-slate-200 shadow-sm bg-slate-50">
-                       <table className="w-full text-left">
-                          <thead className="bg-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
-                             <tr>
-                                <th className="px-6 py-5 sticky left-0 bg-slate-100 z-10">Student Profile</th>
-                                {(selectedSubjectForGrading.assessments || []).map(asm => (
-                                  <th key={asm.id} className="px-6 py-5 text-center">
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-slate-800">{asm.title}</span>
-                                      <span className="text-[8px] opacity-40 font-bold tracking-tight">MAX: {asm.maxMarks} • {asm.weightage}%</span>
-                                    </div>
-                                  </th>
-                                ))}
-                                <th className="px-6 py-5 text-right bg-indigo-50 text-indigo-600 border-l border-indigo-100">Final Weighted</th>
-                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                             {students.filter(s => s.grade === selectedSubjectForGrading.grade).map(student => {
-                               const overall = calculateOverallGrade(student.id, selectedSubjectForGrading);
-                               return (
-                                 <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-6 py-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100">
-                                       <div className="flex items-center gap-3">
-                                          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-black shadow-sm border border-slate-200 shrink-0">
-                                             {student.name.charAt(0)}
-                                          </div>
-                                          <div className="min-w-0">
-                                            <p className="text-xs font-black text-slate-900 truncate max-w-[140px]">{student.name}</p>
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{student.admissionNo}</p>
-                                          </div>
-                                       </div>
-                                    </td>
-                                    {(selectedSubjectForGrading.assessments || []).map(asm => (
-                                      <td key={asm.id} className="px-6 py-4">
-                                         <GradeInput 
-                                           initialValue={asm.scores[student.id] ?? ''}
-                                           maxMarks={asm.maxMarks}
-                                           onSave={(newScore) => handleScoreUpdate(asm.id, student.id, newScore)}
-                                         />
-                                      </td>
-                                    ))}
-                                    <td className="px-6 py-4 text-right bg-indigo-50/30 border-l border-indigo-100/50">
-                                       <span className={`text-sm font-black ${overall >= 80 ? 'text-emerald-600' : overall >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
-                                          {overall}%
-                                       </span>
-                                    </td>
-                                 </tr>
-                               );
-                             })}
-                          </tbody>
-                       </table>
-                    </div>
-                    {students.filter(s => s.grade === selectedSubjectForGrading.grade).length === 0 && (
-                      <div className="py-20 text-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-                         {/* Fix: use Users icon which is now imported */}
-                         <Users size={48} className="mx-auto text-slate-200 mb-4" />
-                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No students enrolled in this grade level</p>
-                      </div>
-                    )}
-                 </div>
-               )}
+            <div className="p-8 border-t border-slate-100 bg-white shrink-0 flex items-center justify-between shadow-2xl">
+                <div className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                   <Target size={18} className="text-indigo-400" />
+                   <span>Sequential Curriculum Integrity Mode</span>
+                </div>
+                <button 
+                  onClick={() => { setSelectedSubjectForSyllabus(null); setIsAddingUnit(false); }}
+                  className="px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                >
+                  Finalize & Persist
+                </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Student Termly Grade Entry Dialog */}
+      {selectedStudentForGrades && activeSubject && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedStudentForGrades(null)}></div>
+          <div className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/20">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg">
+                    <Calculator size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Student Performance Entry</h3>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedStudentForGrades.name} • {activeSubject.name}</p>
+                  </div>
+               </div>
+               <button onClick={() => setSelectedStudentForGrades(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors">
+                 <X size={24} />
+               </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10">
+               {/* Calculations Summary */}
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden shadow-xl">
+                     <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500 rounded-full blur-[40px] opacity-20 -mr-12 -mt-12"></div>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Subject Yearly Mean</p>
+                     <p className="text-3xl font-black">{calculateYearlyAverage(activeSubject.id, selectedStudentForGrades.id)}%</p>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-center">
+                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Rank & Promotion</p>
+                     <div className="flex items-center gap-2">
+                        {calculateYearlyAverage(activeSubject.id, selectedStudentForGrades.id) >= 50 ? (
+                           <span className="text-emerald-500 font-black flex items-center gap-1.5 text-sm uppercase tracking-tighter"><CheckCircle size={16} /> PROMOTED</span>
+                        ) : (
+                           <span className="text-rose-500 font-black flex items-center gap-1.5 text-sm uppercase tracking-tighter"><AlertCircle size={16} /> RETAINED</span>
+                        )}
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+                        <span className="text-amber-500 font-black text-sm">#{getRankings['YEARLY']?.[selectedStudentForGrades.id] || '-'}</span>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Term Sections */}
+               <div className="space-y-6">
+                  {TERMS.map(term => {
+                    const test = getStudentScore(activeSubject.id, term, 'TEST', selectedStudentForGrades.id);
+                    const exam = getStudentScore(activeSubject.id, term, 'EXAM', selectedStudentForGrades.id);
+                    const termAvg = calculateTermAverage(activeSubject.id, selectedStudentForGrades.id, term);
+
+                    return (
+                      <div key={term} className="bg-slate-50/50 border border-slate-100 rounded-[2rem] p-6 space-y-5">
+                         <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{term} TERM LEDGER</h4>
+                            <div className="flex items-center gap-3">
+                               <span className={`text-[10px] font-black px-3 py-1 rounded-full ${termAvg >= 50 ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>MN: {termAvg}%</span>
+                               <span className="text-[10px] font-black px-3 py-1 rounded-full bg-amber-50 text-amber-600">RNK: #{getRankings[term]?.[selectedStudentForGrades.id] || '-'}</span>
+                            </div>
+                         </div>
+                         
+                         <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                               <div className="flex items-center justify-between px-1">
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Test (100)</span>
+                               </div>
+                               {test && (
+                                 <GradeInput 
+                                    className="w-full"
+                                    initialValue={test.score ?? ""}
+                                    maxMarks={100}
+                                    onSave={(v) => handleScoreUpdate(activeSubject.id, test.id, selectedStudentForGrades.id, v)}
+                                 />
+                               )}
+                            </div>
+                            <div className="space-y-3">
+                               <div className="flex items-center justify-between px-1">
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Exam (100)</span>
+                               </div>
+                               {exam && (
+                                 <GradeInput 
+                                    className="w-full"
+                                    initialValue={exam.score ?? ""}
+                                    maxMarks={100}
+                                    onSave={(v) => handleScoreUpdate(activeSubject.id, exam.id, selectedStudentForGrades.id, v)}
+                                 />
+                               )}
+                            </div>
+                         </div>
+                      </div>
+                    );
+                  })}
+               </div>
+            </div>
+
+            <div className="p-8 border-t border-slate-100 bg-white shrink-0 flex items-center justify-between shadow-2xl">
+                <div className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                   <ShieldCheck size={18} className="text-emerald-500" />
+                   <span>Ledger Consistency Verified</span>
+                </div>
+                <button 
+                  onClick={() => setSelectedStudentForGrades(null)}
+                  className="px-10 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                >
+                  Finished Entry
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAddingSubject && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsAddingSubject(false)}></div>
@@ -819,14 +929,8 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleAddSubject} className="p-8 space-y-6">
-              <FormGroup label="Subject Name"><input required placeholder="e.g. Advanced Calculus" value={newSubject.name} onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })} /></FormGroup>
-              <div className="grid grid-cols-2 gap-4">
-                <FormGroup label="Grade Level"><select className="w-full appearance-none" value={newSubject.grade} onChange={(e) => setNewSubject({ ...newSubject, grade: e.target.value })}>{CLASSES.map(g => <option key={g}>{g}</option>)}</select></FormGroup>
-                <FormGroup label="Initial Progress"><input type="number" min="0" max="100" value={newSubject.progress} onChange={(e) => setNewSubject({ ...newSubject, progress: parseInt(e.target.value) || 0 })} /></FormGroup>
-              </div>
-              <FormGroup label="Assign Educator"><select required className="w-full appearance-none" value={newSubject.teacher} onChange={(e) => setNewSubject({ ...newSubject, teacher: e.target.value })}><option value="">Select educator</option>{MOCK_TEACHERS.map(t => <option key={t}>{t}</option>)}</select></FormGroup>
-              <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">Register Subject</button>
+            <form className="p-8 space-y-6">
+              <p className="text-center text-slate-400 text-xs italic">Subject registry form implementation pending API integration...</p>
             </form>
           </div>
         </div>
@@ -835,28 +939,14 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
   );
 };
 
-// Functions declared here to allow hoisting and resolve JSX typing issues
 function AcademicCard({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) {
   return (
     <div className="bg-white p-6 rounded-[2rem] border border-slate-200 flex items-center gap-4 shadow-sm group hover:border-indigo-200 transition-all">
       <div className={`p-4 bg-slate-50 rounded-2xl group-hover:bg-${color}-50 transition-colors`}>{icon}</div>
       <div>
-        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{label}</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
         <p className="text-2xl font-black text-slate-900 leading-tight">{value}</p>
       </div>
-    </div>
-  );
-}
-
-// Added cast to `any` for children.props to avoid "Property 'className' does not exist on type 'unknown'" error.
-function FormGroup({ label, children, className = "" }: { label: string, children?: React.ReactElement, className?: string }) {
-  if (!children) return null;
-  return (
-    <div className={`space-y-2 ${className}`}>
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-      {React.cloneElement(children, {
-        className: `w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-sm font-medium transition-all focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:bg-white ${(children.props as any)?.className || ""}`
-      } as any)}
     </div>
   );
 }

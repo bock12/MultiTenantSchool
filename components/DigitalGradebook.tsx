@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -213,7 +212,8 @@ export const DigitalGradebook = () => {
         if (!selectedExamId) return;
         setSaving(true);
 
-        const payload = Object.entries(results).map(([studentId, data]) => ({
+        // Fix: Explicitly cast Object.entries to ensure 'data' properties are accessible without 'unknown' errors
+        const payload = (Object.entries(results) as [string, { score: string; grade: string }][]).map(([studentId, data]) => ({
             studentId,
             score: parseFloat(data.score) || 0,
             grade: data.grade

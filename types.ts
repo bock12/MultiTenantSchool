@@ -88,6 +88,8 @@ export interface Assessment {
   id: string;
   title: string;
   type: 'ASSIGNMENT' | 'QUIZ' | 'EXAM';
+  term?: 'FIRST' | 'SECOND' | 'THIRD';
+  subType?: 'TEST' | 'EXAM';
   maxMarks: number;
   weightage: number;
   date: string;
