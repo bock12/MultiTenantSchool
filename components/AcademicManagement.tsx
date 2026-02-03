@@ -31,7 +31,6 @@ import {
   Trophy,
   PlayCircle,
   Hash,
-  ArrowDownWideLog,
   Flag,
   UserCog,
   FileSpreadsheet,
