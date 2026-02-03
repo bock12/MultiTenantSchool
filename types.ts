@@ -1,10 +1,12 @@
 
 export enum UserRole {
+  SUPERADMIN = 'SUPERADMIN',
   ADMIN = 'ADMIN',
   PRINCIPAL = 'PRINCIPAL',
   TEACHER = 'TEACHER',
   PARENT = 'PARENT',
-  STUDENT = 'STUDENT'
+  STUDENT = 'STUDENT',
+  EXAM_OFFICER = 'EXAM_OFFICER'
 }
 
 export enum AdmissionStatus {

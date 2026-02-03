@@ -18,10 +18,15 @@ import {
   ShieldCheck,
   Building2,
   Globe,
-  Plus
+  Plus,
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import PrincipalDashboard from './components/PrincipalDashboard';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
+import ExamOfficerDashboard from './components/ExamOfficerDashboard';
+import StudentPortal from './components/StudentPortal';
 import AdmissionsPortal from './components/AdmissionsPortal';
 import AcademicManagement from './components/AcademicManagement';
 import FinanceManagement from './components/FinanceManagement';
@@ -31,7 +36,7 @@ import AIInsights from './components/AIInsights';
 import MobileSync from './components/MobileSync';
 import StudentManagement from './components/StudentManagement';
 import ClassroomManagement from './components/ClassroomManagement';
-import { AdmissionStatus, AdmissionApplication, Student, Subject, Classroom, Staff, Assessment, SyllabusUnit, Tenant, AcademicStream } from './types';
+import { AdmissionStatus, AdmissionApplication, Student, Subject, Classroom, Staff, Assessment, SyllabusUnit, Tenant, AcademicStream, UserRole } from './types';
 
 // Multi-Tenant Mock Data
 const INITIAL_TENANTS: Tenant[] = [
@@ -50,6 +55,7 @@ const INITIAL_STAFF: Staff[] = [
 const INITIAL_STUDENTS: Student[] = [
   { id: 'S1', tenantId: 'T1', name: 'Alexander Wright', grade: 'SSS1', section: '1', admissionNo: 'ADM-2024-001', gender: 'M', parentName: 'Robert Wright', status: 'ACTIVE', advisor: 'Dr. Alan Grant', stream: 'SCIENCE' },
   { id: 'S2', tenantId: 'T2', name: 'Sophia Martinez', grade: 'Grade 10', section: 'B', admissionNo: 'ADM-2024-002', gender: 'F', parentName: 'Elena Martinez', status: 'ACTIVE', advisor: 'Mr. Ian Malcolm', stream: 'GENERAL' },
+  { id: 'S3', tenantId: 'T1', name: 'Marcus Aurelius', grade: 'SSS1', section: '1', admissionNo: 'ADM-2024-003', gender: 'M', parentName: 'Antoninus Pius', status: 'ACTIVE', advisor: 'Dr. Alan Grant', stream: 'SCIENCE' },
 ];
 
 const INITIAL_SUBJECTS: Subject[] = [
@@ -58,20 +64,20 @@ const INITIAL_SUBJECTS: Subject[] = [
     syllabus: [
       { id: 'U1', title: 'Algebra Foundations', description: 'Variables, expressions, and linear equations.', status: 'COMPLETED', order: 1 },
       { id: 'U2', title: 'Quadratic Equations', description: 'Solving quadratics.', status: 'COMPLETED', order: 2 },
+    ],
+    assessments: [
+      { id: 'A1', title: 'T1 Test', type: 'QUIZ', term: 'FIRST', subType: 'TEST', maxMarks: 100, weightage: 50, date: '2024-02-10', scores: { 'S1': 85, 'S3': 70 } },
+      { id: 'A2', title: 'T1 Exam', type: 'EXAM', term: 'FIRST', subType: 'EXAM', maxMarks: 100, weightage: 50, date: '2024-04-15', scores: { 'S1': 78, 'S3': 82 } },
+      { id: 'A5', title: 'T2 Test', type: 'QUIZ', term: 'SECOND', subType: 'TEST', maxMarks: 100, weightage: 50, date: '2024-06-10', scores: { 'S1': 92, 'S3': 88 } }
     ]
   },
   { 
-    id: 'SUB2', tenantId: 'T2', name: 'Science', grade: 'Grade 10', teacher: 'Mr. Ian Malcolm', teacherId: 'STF3', progress: 0, 
-    assessments: [], 
-    syllabus: [
-      { 
-        id: 'U-QM', 
-        title: 'Introduction to Quantum Mechanics', 
-        description: 'A basic overview of quantum concepts.', 
-        status: 'PENDING', 
-        order: 1 
-      }
-    ] 
+    id: 'SUB2', tenantId: 'T1', name: 'Science', grade: 'SSS1', teacher: 'Ms. Ellie Sattler', teacherId: 'STF2', progress: 15,
+    syllabus: [{ id: 'U-PH', title: 'Photosynthesis', description: 'The light cycle.', status: 'IN_PROGRESS', order: 1 }],
+    assessments: [
+      { id: 'A3', title: 'T1 Test', type: 'QUIZ', term: 'FIRST', subType: 'TEST', maxMarks: 100, weightage: 50, date: '2024-02-15', scores: { 'S1': 92, 'S3': 95 } },
+      { id: 'A4', title: 'T1 Exam', type: 'EXAM', term: 'FIRST', subType: 'EXAM', maxMarks: 100, weightage: 50, date: '2024-04-20', scores: { 'S1': 88, 'S3': 90 } }
+    ]
   },
 ];
 
@@ -80,10 +86,11 @@ const INITIAL_CLASSROOMS: Classroom[] = [
   { id: 'C2', tenantId: 'T2', grade: 'Grade 10', section: 'B', classTeacherId: 'STF3', roomNumber: '102', capacity: 30, stream: 'GENERAL' },
 ];
 
-export type View = 'DASHBOARD' | 'STUDENTS' | 'ACADEMICS' | 'FINANCE' | 'ADMISSIONS' | 'STAFF' | 'LIBRARY' | 'AI_INSIGHTS' | 'MOBILE_SYNC' | 'CLASSROOMS';
+export type View = 'DASHBOARD' | 'STUDENTS' | 'ACADEMICS' | 'FINANCE' | 'ADMISSIONS' | 'STAFF' | 'LIBRARY' | 'AI_INSIGHTS' | 'MOBILE_SYNC' | 'CLASSROOMS' | 'EXAMS_OFFICE' | 'STUDENT_PORTAL' | 'SYSTEM_HUB';
 
 const App: React.FC = () => {
   const [activeTenant, setActiveTenant] = useState<Tenant | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.SUPERADMIN);
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [admissions, setAdmissions] = useState<AdmissionApplication[]>([]);
@@ -92,6 +99,7 @@ const App: React.FC = () => {
   const [classrooms, setClassrooms] = useState<Classroom[]>(INITIAL_CLASSROOMS);
   const [staff, setStaff] = useState<Staff[]>(INITIAL_STAFF);
   const [notification, setNotification] = useState<string | null>(null);
+  const [showRoleSelector, setShowRoleSelector] = useState(false);
 
   // Memoized Partitioned Data
   const tenantData = useMemo(() => {
@@ -105,15 +113,10 @@ const App: React.FC = () => {
     };
   }, [activeTenant, students, staff, subjects, classrooms, admissions]);
 
-  const handleAdmissionStatusUpdate = (
-    appId: string, 
-    newStatus: AdmissionStatus, 
-    enrollmentData?: { grade: string; section: string; stream?: AcademicStream }
-  ) => {
+  const handleAdmissionStatusUpdate = (appId: string, newStatus: AdmissionStatus, enrollmentData?: { grade: string; section: string; stream?: AcademicStream }) => {
     if (!activeTenant) return;
     const app = admissions.find(a => a.id === appId);
     if (!app) return;
-
     if (newStatus === AdmissionStatus.ACCEPTED && app.status === AdmissionStatus.ACCEPTED) return;
 
     if (newStatus === AdmissionStatus.ACCEPTED && enrollmentData) {
@@ -139,18 +142,11 @@ const App: React.FC = () => {
         medicalNotes: app.medicalNotes
       };
       setStudents(prev => [newStudent, ...prev]);
-      
-      // Update application to link it back to the student
-      setAdmissions(prev => prev.map(a => 
-        a.id === appId ? { ...a, status: newStatus, studentId: studentId } : a
-      ));
-
+      setAdmissions(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus, studentId: studentId } : a));
       setNotification(`${app.studentName} enrolled at ${activeTenant.name}!`);
       setTimeout(() => setNotification(null), 4000);
     } else {
-      setAdmissions(prev => prev.map(a => 
-        a.id === appId ? { ...a, status: newStatus } : a
-      ));
+      setAdmissions(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
     }
   };
 
@@ -167,55 +163,73 @@ const App: React.FC = () => {
   };
 
   const updateAssessments = (subjectId: string, assessments: Assessment[]) => {
-    setSubjects(prev => prev.map(s => 
-      s.id === subjectId ? { ...s, assessments } : s
-    ));
+    setSubjects(prev => prev.map(s => s.id === subjectId ? { ...s, assessments } : s));
   };
 
+  // If SuperAdmin and no tenant selected, show the Cloud Management Hub
+  if (userRole === UserRole.SUPERADMIN && !activeTenant) {
+    return (
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar 
+          currentView={currentView} 
+          setCurrentView={setCurrentView} 
+          isOpen={isSidebarOpen} 
+          activeTenant={null as any}
+          onSwitchTenant={() => setActiveTenant(null)}
+          role={userRole}
+        />
+        <main className="flex-1 flex flex-col h-full overflow-hidden">
+           <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+             <div className="flex items-center gap-4">
+               <h1 className="text-lg font-black text-slate-900 tracking-tighter uppercase">Nexus Global</h1>
+             </div>
+             <div className="flex items-center gap-4">
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowRoleSelector(!showRoleSelector)}
+                    className="flex items-center gap-3 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest border border-indigo-100"
+                  >
+                    <ShieldCheck size={12} /> System Admin <ChevronDown size={10} />
+                  </button>
+                  {showRoleSelector && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
+                       <p className="px-4 py-2 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 bg-slate-50/50">Simulate Identity</p>
+                       <button onClick={() => { setUserRole(UserRole.SUPERADMIN); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-indigo-50 text-indigo-600 transition-colors">SuperAdmin</button>
+                       <button onClick={() => { setUserRole(UserRole.PRINCIPAL); setActiveTenant(INITIAL_TENANTS[0]); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-emerald-50 text-emerald-600 transition-colors">School Principal</button>
+                       <button onClick={() => { setUserRole(UserRole.EXAM_OFFICER); setActiveTenant(INITIAL_TENANTS[0]); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-amber-50 text-amber-600 transition-colors">Exam Officer</button>
+                       <button onClick={() => { setUserRole(UserRole.STUDENT); setActiveTenant(INITIAL_TENANTS[0]); setCurrentView('STUDENT_PORTAL'); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-indigo-50 text-indigo-600 transition-colors">Student Persona</button>
+                    </div>
+                  )}
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black shadow-lg">SA</div>
+             </div>
+           </header>
+           <div className="flex-1 overflow-y-auto custom-scrollbar">
+             <SuperAdminDashboard tenants={INITIAL_TENANTS} onSelectTenant={(t) => { setActiveTenant(t); setUserRole(UserRole.PRINCIPAL); }} />
+           </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Fallback for when no tenant is selected and user is NOT SuperAdmin (Should theoretically prompt for Login)
   if (!activeTenant) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 overflow-hidden relative">
-        {/* Background Gradients */}
-        <div className="absolute top-0 -left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px]"></div>
-        
-        <div className="max-w-4xl w-full z-10">
-          <div className="text-center mb-12">
-            <div className="inline-flex p-4 rounded-3xl bg-indigo-500/10 mb-6">
-              <BrainCircuit size={64} className="text-indigo-400" />
-            </div>
-            <h1 className="text-5xl font-black text-white tracking-tighter mb-4">EduNexus</h1>
-            <p className="text-slate-400 text-lg max-w-lg mx-auto font-medium">
-              The next-generation multi-tenant operating system for modern educational institutions.
-            </p>
-          </div>
-
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 relative">
+        <div className="max-w-4xl w-full z-10 text-center">
+          <div className="inline-flex p-4 rounded-3xl bg-indigo-500/10 mb-6"><BrainCircuit size={64} className="text-indigo-400" /></div>
+          <h1 className="text-5xl font-black text-white tracking-tighter mb-4">EduNexus Login</h1>
+          <p className="text-slate-400 mb-12">Select your institutional portal to begin.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {INITIAL_TENANTS.map((tenant) => (
-              <button
-                key={tenant.id}
-                onClick={() => setActiveTenant(tenant)}
-                className="group relative bg-slate-800/50 border border-slate-700 p-8 rounded-[2.5rem] text-left hover:bg-slate-800 hover:border-indigo-500 transition-all hover:scale-[1.02]"
-              >
-                <div 
-                  className="w-16 h-16 rounded-2xl mb-6 flex items-center justify-center text-white shadow-xl"
-                  style={{ backgroundColor: tenant.primaryColor }}
-                >
-                  <School size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">{tenant.name}</h3>
-                <p className="text-slate-500 text-sm mb-6">{tenant.region}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-indigo-400 text-xs font-black uppercase tracking-widest">{tenant.studentCount} Students</span>
-                  <ChevronRight size={20} className="text-slate-600 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
-                </div>
+              <button key={tenant.id} onClick={() => { setActiveTenant(tenant); setUserRole(UserRole.PRINCIPAL); }} className="bg-slate-800/50 border border-slate-700 p-8 rounded-[2.5rem] text-left hover:border-indigo-500 transition-all">
+                <div className="w-12 h-12 rounded-xl mb-6 flex items-center justify-center text-white shadow-xl" style={{ backgroundColor: tenant.primaryColor }}><School size={24} /></div>
+                <h3 className="text-lg font-bold text-white">{tenant.name}</h3>
+                <p className="text-slate-500 text-xs mt-1">{tenant.region}</p>
               </button>
             ))}
           </div>
-
-          <p className="text-center text-slate-600 text-[10px] font-black uppercase tracking-[0.3em] mt-16">
-            Institutional OS v2.5 • Unified Multi-Tenant Architecture
-          </p>
+          <button onClick={() => setUserRole(UserRole.SUPERADMIN)} className="mt-12 text-indigo-400 font-black text-[10px] uppercase tracking-widest hover:underline">Access Global System Command</button>
         </div>
       </div>
     );
@@ -229,31 +243,38 @@ const App: React.FC = () => {
         isOpen={isSidebarOpen} 
         activeTenant={activeTenant}
         onSwitchTenant={() => setActiveTenant(null)}
+        role={userRole}
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Header */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-slate-50 rounded-lg text-slate-500 lg:hidden"
-            >
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-500 lg:hidden">
               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search resources, students..." 
-                className="pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-sm w-80 focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-              />
+            <div className="flex items-center gap-3">
+               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: activeTenant.primaryColor }}><School size={16} /></div>
+               <span className="font-black text-slate-900 tracking-tight uppercase hidden sm:inline">{activeTenant.name}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full font-black text-[10px] uppercase tracking-widest border border-indigo-100">
-              <ShieldCheck size={12} /> Principal Access
+            <div className="relative">
+              <button 
+                onClick={() => setShowRoleSelector(!showRoleSelector)}
+                className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full font-black text-[10px] uppercase tracking-widest border border-indigo-100"
+              >
+                <ShieldCheck size={12} /> {userRole} Access <ChevronDown size={10} />
+              </button>
+              {showRoleSelector && (
+                 <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <button onClick={() => { setUserRole(UserRole.SUPERADMIN); setActiveTenant(null); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-indigo-50 text-indigo-600 transition-colors border-b border-slate-50">Back to SuperAdmin</button>
+                    <button onClick={() => { setUserRole(UserRole.PRINCIPAL); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-emerald-50 text-emerald-600 transition-colors">School Principal</button>
+                    <button onClick={() => { setUserRole(UserRole.EXAM_OFFICER); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-amber-50 text-amber-600 transition-colors">Exam Officer</button>
+                    <button onClick={() => { setUserRole(UserRole.STUDENT); setCurrentView('STUDENT_PORTAL'); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-indigo-50 text-indigo-600 transition-colors">Student Persona</button>
+                    <button onClick={() => { setUserRole(UserRole.TEACHER); setShowRoleSelector(false); }} className="w-full text-left px-4 py-3 text-xs font-bold hover:bg-indigo-50 text-indigo-600 transition-colors">Teacher Persona</button>
+                 </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all relative">
@@ -261,61 +282,27 @@ const App: React.FC = () => {
                 <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
               </button>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-indigo-200">
-                P
+                {userRole.charAt(0)}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50">
           {notification && (
-            <div className="mx-8 mt-6 p-4 bg-indigo-600 text-white rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-4 shadow-xl shadow-indigo-200">
-              <CheckCircle2 size={20} />
-              <p className="font-bold text-sm">{notification}</p>
+            <div className="mx-8 mt-6 p-4 bg-indigo-600 text-white rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-4 shadow-xl">
+              <CheckCircle2 size={20} /><p className="font-bold text-sm">{notification}</p>
             </div>
           )}
 
-          {currentView === 'DASHBOARD' && <PrincipalDashboard />}
-          {currentView === 'ADMISSIONS' && (
-            <AdmissionsPortal 
-              admissions={admissions} 
-              setAdmissions={setAdmissions} 
-              onUpdateStatus={handleAdmissionStatusUpdate}
-              students={students}
-              setStudents={setStudents}
-              activeTenant={activeTenant}
-            />
-          )}
-          {currentView === 'STUDENTS' && (
-            <StudentManagement 
-              students={tenantData?.students || []} 
-              setStudents={setStudents}
-              activeTenant={activeTenant}
-              admissions={admissions}
-            />
-          )}
-          {currentView === 'ACADEMICS' && (
-            <AcademicManagement 
-              subjects={tenantData?.subjects || []}
-              setSubjects={setSubjects}
-              onUpdateSyllabus={updateSyllabus}
-              onUpdateAssessments={updateAssessments}
-              students={tenantData?.students || []}
-              activeTenant={activeTenant}
-            />
-          )}
-          {currentView === 'CLASSROOMS' && (
-            <ClassroomManagement 
-              classrooms={tenantData?.classrooms || []}
-              setClassrooms={setClassrooms}
-              students={tenantData?.students || []}
-              subjects={tenantData?.subjects || []}
-              setSubjects={setSubjects}
-              staff={tenantData?.staff || []}
-              activeTenant={activeTenant}
-            />
-          )}
+          {currentView === 'DASHBOARD' && userRole === UserRole.EXAM_OFFICER && <ExamOfficerDashboard subjects={tenantData?.subjects || []} students={tenantData?.students || []} setCurrentView={setCurrentView} />}
+          {currentView === 'DASHBOARD' && userRole !== UserRole.EXAM_OFFICER && userRole !== UserRole.STUDENT && <PrincipalDashboard setCurrentView={setCurrentView} />}
+          {currentView === 'STUDENT_PORTAL' && userRole === UserRole.STUDENT && <StudentPortal student={tenantData?.students[0] || INITIAL_STUDENTS[0]} subjects={tenantData?.subjects || []} activeTenant={activeTenant} allStudents={tenantData?.students || []} />}
+          {currentView === 'EXAMS_OFFICE' && <ExamOfficerDashboard subjects={tenantData?.subjects || []} students={tenantData?.students || []} setCurrentView={setCurrentView} />}
+          {currentView === 'ADMISSIONS' && <AdmissionsPortal admissions={admissions} setAdmissions={setAdmissions} onUpdateStatus={handleAdmissionStatusUpdate} students={students} setStudents={setStudents} activeTenant={activeTenant} />}
+          {currentView === 'STUDENTS' && <StudentManagement students={tenantData?.students || []} setStudents={setStudents} activeTenant={activeTenant} admissions={admissions} />}
+          {currentView === 'ACADEMICS' && <AcademicManagement subjects={tenantData?.subjects || []} setSubjects={setSubjects} onUpdateSyllabus={updateSyllabus} onUpdateAssessments={updateAssessments} students={tenantData?.students || []} activeTenant={activeTenant} setCurrentView={setCurrentView} />}
+          {currentView === 'CLASSROOMS' && <ClassroomManagement classrooms={tenantData?.classrooms || []} setClassrooms={setClassrooms} students={tenantData?.students || []} subjects={tenantData?.subjects || []} setSubjects={setSubjects} staff={tenantData?.staff || []} activeTenant={activeTenant} />}
           {currentView === 'FINANCE' && <FinanceManagement />}
           {currentView === 'STAFF' && <StaffManagement staff={tenantData?.staff || []} setStaff={setStaff} />}
           {currentView === 'LIBRARY' && <LibraryManagement />}

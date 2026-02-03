@@ -11,7 +11,9 @@ import {
   Download,
   UserPlus,
   Wallet,
-  FileText
+  FileText,
+  FileCheck,
+  ChevronRight
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -27,6 +29,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import { View } from '../App';
 
 const dataPerformance = [
   { name: 'G1', score: 85 },
@@ -47,7 +50,11 @@ const dataAttendance = [
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b'];
 
-const PrincipalDashboard: React.FC = () => {
+interface PrincipalDashboardProps {
+  setCurrentView?: (view: View) => void;
+}
+
+const PrincipalDashboard: React.FC<PrincipalDashboardProps> = ({ setCurrentView }) => {
   return (
     <div className="p-4 md:p-8">
       {/* Page Title & Actions */}
@@ -85,12 +92,13 @@ const PrincipalDashboard: React.FC = () => {
           color="emerald" 
         />
         <StatCard 
-          label="Active Admissions" 
-          value="45" 
-          change="12 Pending" 
+          label="Results Pipeline" 
+          value="12 Pending" 
+          change="Exam Office" 
           trend="neutral" 
-          icon={<TrendingUp className="text-amber-600" />} 
+          icon={<FileCheck className="text-amber-600" />} 
           color="amber" 
+          onClick={() => setCurrentView?.('EXAMS_OFFICE')}
         />
         <StatCard 
           label="Outstanding Fees" 
@@ -223,8 +231,8 @@ const PrincipalDashboard: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ label: string, value: string, change: string, trend: 'up' | 'down' | 'neutral', icon: React.ReactNode, color: string }> = ({ label, value, change, trend, icon, color }) => (
-  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group">
+const StatCard: React.FC<{ label: string, value: string, change: string, trend: 'up' | 'down' | 'neutral', icon: React.ReactNode, color: string, onClick?: () => void }> = ({ label, value, change, trend, icon, color, onClick }) => (
+  <div onClick={onClick} className={`bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group ${onClick ? 'cursor-pointer hover:border-indigo-400' : ''}`}>
     <div className="flex items-start justify-between mb-3">
       <div className={`p-2.5 rounded-xl bg-${color}-50 group-hover:scale-110 transition-transform shrink-0`}>
         {icon}
@@ -233,6 +241,7 @@ const StatCard: React.FC<{ label: string, value: string, change: string, trend: 
         {trend === 'up' && <ArrowUpRight size={14} />}
         {trend === 'down' && <ArrowDownRight size={14} />}
         {change}
+        {onClick && <ChevronRight size={12} className="ml-1 opacity-40 group-hover:translate-x-1 transition-transform" />}
       </div>
     </div>
     <p className="text-slate-500 text-xs font-medium uppercase tracking-tight">{label}</p>

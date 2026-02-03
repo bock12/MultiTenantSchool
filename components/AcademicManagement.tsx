@@ -31,15 +31,18 @@ import {
   Trophy,
   PlayCircle,
   Hash,
+  ArrowDownWideLog,
   Flag,
   UserCog,
   FileSpreadsheet,
   Calculator,
   ShieldCheck,
-  Medal
+  Medal,
+  FileCheck
 } from 'lucide-react';
 import { AddSubjectFormBatch } from './AddSubjectFormBatch';
 import { Subject, SyllabusUnit, Assessment, Student, SyllabusStatus, Tenant } from '../types';
+import { View } from '../App';
 
 interface AcademicManagementProps {
   subjects: Subject[];
@@ -48,6 +51,7 @@ interface AcademicManagementProps {
   onUpdateAssessments: (subjectId: string, assessments: Assessment[]) => void;
   students: Student[];
   activeTenant: Tenant;
+  setCurrentView?: (view: View) => void;
 }
 
 interface SchoolEvent {
@@ -137,7 +141,7 @@ const GradeInput = ({
   );
 };
 
-const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSubjects, onUpdateSyllabus, onUpdateAssessments, students, activeTenant }) => {
+const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSubjects, onUpdateSyllabus, onUpdateAssessments, students, activeTenant, setCurrentView }) => {
   const [activeTab, setActiveTab] = useState<'SUBJECTS' | 'GRADEBOOK' | 'CALENDAR'>('SUBJECTS');
   const [gradingTab, setGradingTab] = useState<'ASSESSMENTS' | 'LEDGER'>('LEDGER');
   const [events, setEvents] = useState<SchoolEvent[]>(INITIAL_EVENTS);
@@ -477,6 +481,18 @@ const AcademicManagement: React.FC<AcademicManagementProps> = ({ subjects, setSu
 
                  {activeSubject?.assessments?.length > 0 && (
                    <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden relative">
+                      <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                         <div className="flex items-center gap-2">
+                           <FileCheck size={18} className="text-emerald-500" />
+                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Consensus Pipeline</span>
+                         </div>
+                         <button 
+                           onClick={() => setCurrentView?.('EXAMS_OFFICE')}
+                           className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2"
+                         >
+                           Submit for Exam Office Verification <ChevronRight size={14} />
+                         </button>
+                      </div>
                       <div className="overflow-x-auto custom-scrollbar">
                          <table className="w-full text-left border-collapse min-w-[1400px]">
                             <thead>
