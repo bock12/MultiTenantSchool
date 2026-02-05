@@ -16,6 +16,19 @@ export enum AdmissionStatus {
   REJECTED = 'REJECTED'
 }
 
+export type NotificationCategory = 'ALERT' | 'SYSTEM' | 'MESSAGE' | 'ACADEMIC';
+
+export interface Notification {
+  id: string;
+  tenantId?: string;
+  userId?: string;
+  title: string;
+  message: string;
+  category: NotificationCategory;
+  date: string;
+  read: boolean;
+}
+
 export type SyllabusStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 
 export type DocumentCategory = 'ACADEMIC' | 'MEDICAL' | 'CONSENT' | 'IDENTIFICATION' | 'OTHER';
@@ -91,7 +104,7 @@ export interface Assessment {
   title: string;
   type: 'ASSIGNMENT' | 'QUIZ' | 'EXAM';
   term?: 'FIRST' | 'SECOND' | 'THIRD';
-  subType?: 'TEST' | 'EXAM';
+  subType?: 'TEST' | 'EXAM' | 'ASSIGNMENT';
   maxMarks: number;
   weightage: number;
   date: string;

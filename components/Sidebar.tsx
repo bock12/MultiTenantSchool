@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  BookOpen, 
-  Wallet, 
-  UserPlus, 
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  Wallet,
+  UserPlus,
   Settings,
   Library,
   Briefcase,
@@ -22,20 +22,20 @@ import {
   Award,
   IdCard
 } from 'lucide-react';
-import { View } from '../App';
+import { Link, useLocation } from 'react-router-dom';
 import { Tenant, UserRole } from '../types';
 
 interface SidebarProps {
-  currentView: View;
-  setCurrentView: (view: View) => void;
   isOpen: boolean;
   activeTenant: Tenant;
   onSwitchTenant: () => void;
+  onLogout: () => void;
   role: UserRole;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isOpen, activeTenant, onSwitchTenant, role }) => {
-  
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant, onLogout, role }) => {
+  const location = useLocation();
+
   const getMenuItems = () => {
     // SuperAdmin Menu
     if (role === UserRole.SUPERADMIN) {
@@ -44,6 +44,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isOpen, 
         { id: 'SYSTEM_HUB', icon: Database, label: 'Instance Manager' },
         { id: 'FINANCE', icon: Wallet, label: 'Global Billing' },
         { id: 'AI_INSIGHTS', icon: BrainCircuit, label: 'System Analytics' },
+      ];
+    }
+
+    // Teacher Portal Menu
+    if (role === UserRole.TEACHER) {
+      return [
+        { id: 'DASHBOARD', icon: LayoutDashboard, label: 'Teacher Hub' },
+        { id: 'ACADEMICS', icon: BookOpen, label: 'My Classes' },
+        { id: 'STUDENTS', icon: Users, label: 'Student List' },
+        { id: 'LIBRARY', icon: Library, label: 'Resource Library' },
+        { id: 'AI_INSIGHTS', icon: BrainCircuit, label: 'AI Assistance' },
       ];
     }
 
@@ -109,19 +120,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isOpen, 
 
         {/* Branding/Switching Area */}
         <div className="bg-slate-800/40 rounded-2xl p-4 border border-slate-700/50 mb-4">
-           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-             {role === UserRole.SUPERADMIN ? 'System Context' : 'Active Institution'}
-           </p>
-           <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-white truncate pr-2">
-                {role === UserRole.SUPERADMIN ? 'Nexus Global Hub' : activeTenant?.name}
-              </p>
-              {role !== UserRole.SUPERADMIN && role !== UserRole.STUDENT && (
-                <button onClick={onSwitchTenant} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors text-indigo-400" title="Switch Context">
-                  <Repeat size={14} />
-                </button>
-              )}
-           </div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+            {role === UserRole.SUPERADMIN ? 'System Context' : 'Active Institution'}
+          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold text-white truncate pr-2">
+              {role === UserRole.SUPERADMIN ? 'Nexus Global Hub' : activeTenant?.name}
+            </p>
+            {role === UserRole.SUPERADMIN && (
+              <button onClick={onSwitchTenant} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors text-indigo-400" title="Switch Context">
+                <Repeat size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -129,29 +140,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, isOpen, 
         <p className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">Command Center</p>
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentView === item.id;
+          const path = role === UserRole.SUPERADMIN ? `/${item.id.toLowerCase()}` : `/${activeTenant?.id}/${item.id.toLowerCase()}`;
+          const isActive = location.pathname === path || (item.id === 'DASHBOARD' && location.pathname === `/${activeTenant?.id}`);
+
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => setCurrentView(item.id as View)}
-              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
-                isActive 
-                  ? 'text-white shadow-xl' 
-                  : 'hover:bg-slate-800 hover:text-white'
-              }`}
+              to={path}
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive
+                ? 'text-white shadow-xl'
+                : 'hover:bg-slate-800 hover:text-white'
+                }`}
               style={isActive ? { backgroundColor: activeTenant?.primaryColor || '#6366f1' } : {}}
             >
               <div className="flex items-center gap-4">
                 <Icon size={20} className={isActive ? 'text-white' : 'group-hover:text-indigo-400 transition-colors'} />
                 <span className="font-bold text-sm tracking-tight">{item.label}</span>
               </div>
-            </button>
+            </Link>
           );
         })}
       </nav>
 
       <div className="p-4 mt-auto border-t border-slate-800/50 space-y-2">
-        <button onClick={onSwitchTenant} className="w-full flex items-center gap-4 px-4 py-3 text-slate-400 hover:text-white transition-colors group">
+        <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 text-slate-400 hover:text-white transition-colors group">
           <LogOut size={20} className="group-hover:text-rose-400" />
           <span className="font-bold text-sm">Exit Session</span>
         </button>
