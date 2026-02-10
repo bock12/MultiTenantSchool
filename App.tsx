@@ -104,6 +104,7 @@ const App: React.FC = () => {
   const [activeTenant, setActiveTenant] = useState<Tenant | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.SUPERADMIN);
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [admissions, setAdmissions] = useState<AdmissionApplication[]>([]);
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
@@ -113,29 +114,59 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>(INITIAL_TENANTS);
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
 
-  // Sync activeTenant with URL
-  const { tenantId } = useParams();
+  // Phase 5 State
+  const [fees, setFees] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [books, setBooks] = useState<any[]>([]);
+  const [loans, setLoans] = useState<any[]>([]);
+  const [fines, setFines] = useState<any[]>([]);
 
+  // Sync activeTenant with URL
   useEffect(() => {
-    if (tenantId) {
-      const tenant = INITIAL_TENANTS.find(t => t.id === tenantId);
+    const pathParts = location.pathname.split('/');
+    const tenantIdFromPath = pathParts[1];
+
+    if (tenantIdFromPath && tenantIdFromPath !== 'login' && tenantIdFromPath !== 'signup') {
+      const tenant = tenants.find(t => t.id === tenantIdFromPath);
       if (tenant) {
         setActiveTenant(tenant);
-        // In Phase 3, we verify the user actually belongs to this tenant
       }
-    } else {
+    } else if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/signup') {
       setActiveTenant(null);
     }
-  }, [tenantId]);
+  }, [location.pathname, tenants]);
+
+  // Fetch Tenants (Global)
+  useEffect(() => {
+    const fetchTenants = async () => {
+      const { data, error } = await supabase.from('tenants').select('*');
+      if (!error && data) {
+        setTenants(data.map(t => ({
+          id: t.id,
+          name: t.name,
+          subdomain: t.domain || '',
+          logo: t.logo_url || 'emerald',
+          primaryColor: t.primary_color || '#6366f1',
+          region: t.region || 'North District',
+          studentCount: 0 // In prod, this would be a join/count
+        })));
+      }
+    };
+    fetchTenants();
+  }, [session]);
 
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (!session || !activeTenant) return;
+      if (!session || !activeTenant) {
+        setIsLoading(false);
+        return;
+      }
 
       setIsLoading(true);
       try {
@@ -198,6 +229,21 @@ const App: React.FC = () => {
         if (!admissionError && admissionData) {
           setAdmissions(admissionData as any);
         }
+
+        // Phase 5: Fetch Finance & Library
+        const [feesRes, transRes, booksRes, loansRes, finesRes] = await Promise.all([
+          supabase.from('fees').select('*').eq('tenant_id', activeTenant.id),
+          supabase.from('transactions').select('*').eq('tenant_id', activeTenant.id),
+          supabase.from('books').select('*').eq('tenant_id', activeTenant.id),
+          supabase.from('loans').select('*, books(*), students(*)').eq('tenant_id', activeTenant.id),
+          supabase.from('fines').select('*, loans(*), students(*)').eq('tenant_id', activeTenant.id)
+        ]);
+
+        if (!feesRes.error) setFees(feesRes.data || []);
+        if (!transRes.error) setTransactions(transRes.data || []);
+        if (!booksRes.error) setBooks(booksRes.data || []);
+        if (!loansRes.error) setLoans(loansRes.data || []);
+        if (!finesRes.error) setFines(finesRes.data || []);
 
       } catch (err) {
         console.error('Data sync failed:', err);
@@ -352,15 +398,63 @@ const App: React.FC = () => {
   };
 
   const updateAssessments = async (subjectId: string, assessments: Assessment[]) => {
+    if (!activeTenant) return;
+
     // Optimistic Update
     setSubjects(prev => prev.map(s => s.id === subjectId ? { ...s, assessments } : s));
 
-    // Supabase Sync (Simplified: assessments are stored in a separate table in schema, 
-    // but the UI currently treats them as nested. In Phase 4, we'll keep it simple for now or refactor later)
-    // Note: To properly sync, we'd need to insert/update in the 'assessments' table.
+    // Supabase Relational Sync
+    for (const assessment of assessments) {
+      const isNew = !assessment.id.includes('-'); // Rough check for non-UUID
+
+      const assessmentData = {
+        tenant_id: activeTenant.id,
+        subject_id: subjectId,
+        title: assessment.title,
+        type: assessment.type,
+        term: assessment.term,
+        sub_type: assessment.subType,
+        max_marks: assessment.maxMarks,
+        weightage: assessment.weightage,
+        date: assessment.date
+      };
+
+      let assessmentId = assessment.id;
+
+      if (isNew) {
+        const { data, error } = await supabase
+          .from('assessments')
+          .insert(assessmentData)
+          .select()
+          .single();
+        if (error) console.error('Failed to create assessment:', error);
+        if (data) assessmentId = data.id;
+      } else {
+        await supabase
+          .from('assessments')
+          .update(assessmentData)
+          .eq('id', assessment.id);
+      }
+
+      // Sync Scores
+      if (assessment.scores) {
+        const scoreEntries = Object.entries(assessment.scores).map(([studentId, score]) => ({
+          assessment_id: assessmentId,
+          student_id: studentId,
+          score: score
+        }));
+
+        const { error: scoreError } = await supabase
+          .from('scores')
+          .upsert(scoreEntries, { onConflict: 'assessment_id,student_id' });
+
+        if (scoreError) console.error('Failed to sync scores:', scoreError);
+      }
+    }
   };
 
-  if (isLoading && !activeTenant) {
+  // Only show the global loading screen if we have an active tenant but data is still loading
+  if (isLoading && activeTenant) {
     return (
       <div className="h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -383,6 +477,8 @@ const App: React.FC = () => {
             <div className="flex h-screen bg-slate-50 overflow-hidden">
               <Sidebar
                 isOpen={isSidebarOpen}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={() => setSidebarCollapsed(!isSidebarCollapsed)}
                 activeTenant={null as any}
                 onSwitchTenant={() => setActiveTenant(null)}
                 role={userRole}
@@ -409,7 +505,34 @@ const App: React.FC = () => {
                   </div>
                 </header>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                  <SuperAdminDashboard tenants={INITIAL_TENANTS} onSelectTenant={(t) => { navigate(`/${t.id}/dashboard`); setUserRole(UserRole.PRINCIPAL); }} />
+                  <SuperAdminDashboard
+                    tenants={tenants}
+                    onSelectTenant={(t) => { navigate(`/${t.id}/dashboard`); setUserRole(UserRole.PRINCIPAL); }}
+                    onProvisionTenant={async (newTenant) => {
+                      const dbTenant = {
+                        name: newTenant.name,
+                        domain: newTenant.subdomain,
+                        logo_url: newTenant.logo,
+                        primary_color: newTenant.primaryColor,
+                        region: newTenant.region
+                      };
+                      const { data, error } = await supabase.from('tenants').insert(dbTenant).select().single();
+                      if (!error && data) {
+                        const mapped = {
+                          id: data.id,
+                          name: data.name,
+                          subdomain: data.domain,
+                          logo: data.logo_url,
+                          primaryColor: data.primary_color,
+                          region: data.region,
+                          studentCount: 0
+                        };
+                        setTenants(prev => [...prev, mapped]);
+                        setNotification(`Instance ${newTenant.name} provisioned successfully!`);
+                        setTimeout(() => setNotification(null), 4000);
+                      }
+                    }}
+                  />
                 </div>
               </main>
             </div>
@@ -440,6 +563,8 @@ const App: React.FC = () => {
             {activeTenant && (
               <Sidebar
                 isOpen={isSidebarOpen}
+                isCollapsed={isSidebarCollapsed}
+                onToggleCollapse={() => setSidebarCollapsed(!isSidebarCollapsed)}
                 activeTenant={activeTenant}
                 onSwitchTenant={() => navigate('/')}
                 role={userRole}
@@ -529,7 +654,13 @@ const App: React.FC = () => {
                   <Route path="students" element={<StudentManagement students={tenantData?.students || []} setStudents={setStudents} activeTenant={activeTenant!} admissions={admissions} />} />
                   <Route path="staff" element={<StaffManagement staff={tenantData?.staff || []} setStaff={setStaff} activeTenant={activeTenant!} />} />
                   <Route path="academics" element={<AcademicManagement subjects={tenantData?.subjects || []} setSubjects={setSubjects} onUpdateSyllabus={updateSyllabus} onUpdateAssessments={updateAssessments} students={tenantData?.students || []} activeTenant={activeTenant!} setCurrentView={(v) => navigate(`/${activeTenant?.id}/${v.toLowerCase()}`)} />} />
-                  <Route path="classroom" element={<ClassroomManagement classrooms={tenantData?.classrooms || []} setClassrooms={setClassrooms} students={tenantData?.students || []} subjects={tenantData?.subjects || []} setSubjects={setSubjects} staff={tenantData?.staff || []} activeTenant={activeTenant!} />} />
+                  <Route path="exams_office" element={<ExamOfficerDashboard subjects={tenantData?.subjects || []} students={tenantData?.students || []} setCurrentView={(v) => navigate(`/${activeTenant?.id}/${v.toLowerCase()}`)} />} />
+                  <Route path="finance" element={<FinanceManagement fees={fees} transactions={transactions} activeTenant={activeTenant!} />} />
+                  <Route path="library" element={<LibraryManagement books={books} loans={loans} fines={fines} activeTenant={activeTenant!} />} />
+                  <Route path="classrooms" element={<ClassroomManagement classrooms={tenantData?.classrooms || []} setClassrooms={setClassrooms} students={tenantData?.students || []} subjects={tenantData?.subjects || []} setSubjects={setSubjects} staff={tenantData?.staff || []} activeTenant={activeTenant!} />} />
+                  <Route path="admissions" element={<AdmissionsPortal admissions={admissions} onUpdateStatus={handleAdmissionStatusUpdate} activeTenant={activeTenant!} />} />
+                  <Route path="ai_insights" element={<AIInsights data={tenantData} />} />
+                  <Route path="mobile_sync" element={<MobileSync activeTenant={activeTenant!} />} />
                   <Route path="student_portal" element={<StudentPortal student={tenantData?.students[0] || INITIAL_STUDENTS[0]} subjects={tenantData?.subjects || []} activeTenant={activeTenant!} allStudents={tenantData?.students || []} />} />
                   <Route path="*" element={<Navigate to="dashboard" replace />} />
                 </Routes>

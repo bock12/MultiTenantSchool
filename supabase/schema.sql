@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. TENANTS TABLE
-CREATE TABLE tenants (
+CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     domain TEXT UNIQUE,
@@ -16,7 +16,7 @@ CREATE TABLE tenants (
 );
 
 -- 2. PROFILES TABLE (Required for RLS policies)
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     tenant_id UUID REFERENCES tenants(id),
     full_name TEXT,
@@ -25,7 +25,23 @@ CREATE TABLE profiles (
 );
 
 -- 3. CORE SCHOOL TABLES
-CREATE TABLE classrooms (
+CREATE TABLE IF NOT EXISTS staff (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    department TEXT NOT NULL DEFAULT 'GENERAL',
+    joining_date DATE DEFAULT CURRENT_DATE,
+    salary INTEGER DEFAULT 3000,
+    is_hod BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for Staff
+ALTER TABLE staff ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation for staff" ON staff;
+CREATE POLICY "Tenant isolation for staff" ON staff USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+CREATE TABLE IF NOT EXISTS classrooms (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     grade TEXT NOT NULL,
@@ -38,7 +54,7 @@ CREATE TABLE classrooms (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -64,7 +80,7 @@ CREATE TABLE students (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -75,7 +91,7 @@ CREATE TABLE subjects (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE assessments (
+CREATE TABLE IF NOT EXISTS assessments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     subject_id UUID REFERENCES subjects(id) ON DELETE CASCADE,
@@ -89,7 +105,7 @@ CREATE TABLE assessments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE scores (
+CREATE TABLE IF NOT EXISTS scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     assessment_id UUID REFERENCES assessments(id) ON DELETE CASCADE,
     student_id UUID REFERENCES students(id) ON DELETE CASCADE,
@@ -97,7 +113,7 @@ CREATE TABLE scores (
     UNIQUE(assessment_id, student_id)
 );
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     user_id UUID,
@@ -120,17 +136,25 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- 5. POLICIES
 -- Public read for tenants to allow school selection/login
+DROP POLICY IF EXISTS "Public read for tenants" ON tenants;
 CREATE POLICY "Public read for tenants" ON tenants FOR SELECT USING (true);
 
 -- Users can only see/update their own profile
+DROP POLICY IF EXISTS "Users can see their own profile" ON profiles;
 CREATE POLICY "Users can see their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Tenant Isolation Policies (Dependent on profiles table)
+DROP POLICY IF EXISTS "Tenant isolation for classrooms" ON classrooms;
 CREATE POLICY "Tenant isolation for classrooms" ON classrooms USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Tenant isolation for students" ON students;
 CREATE POLICY "Tenant isolation for students" ON students USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Tenant isolation for subjects" ON subjects;
 CREATE POLICY "Tenant isolation for subjects" ON subjects USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Tenant isolation for assessments" ON assessments;
 CREATE POLICY "Tenant isolation for assessments" ON assessments USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+DROP POLICY IF EXISTS "Tenant isolation for notifications" ON notifications;
 CREATE POLICY "Tenant isolation for notifications" ON notifications USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
 
 -- 6. AUTH TRIGGERS
@@ -147,7 +171,7 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
-CREATE TABLE admissions (
+CREATE TABLE IF NOT EXISTS admissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     student_name TEXT NOT NULL,
@@ -167,10 +191,85 @@ CREATE TABLE admissions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS for Admissions
-ALTER TABLE admissions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Tenants can see their own admissions" ON admissions FOR SELECT USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
-CREATE POLICY "Tenants can update their own admissions" ON admissions FOR UPDATE USING (tenant_id = (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+-- 8. FINANCE TABLES
+CREATE TABLE IF NOT EXISTS fees (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    amount NUMERIC NOT NULL,
+    due_date DATE,
+    status TEXT DEFAULT 'PENDING', -- PENDING, PAID, OVERDUE
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    type TEXT NOT NULL, -- INCOME, EXPENSE
+    category TEXT NOT NULL, -- TUITION, SALARY, UTILITY, MAINTENANCE, etc.
+    amount NUMERIC NOT NULL,
+    description TEXT,
+    date DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 9. LIBRARY TABLES
+CREATE TABLE IF NOT EXISTS books (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    isbn TEXT,
+    category TEXT,
+    status TEXT DEFAULT 'Available', -- Available, Borrowed, Reserved
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS loans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    book_id UUID REFERENCES books(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    borrowed_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE NOT NULL,
+    returned_date DATE,
+    status TEXT DEFAULT 'ON_TIME', -- ON_TIME, OVERDUE, RETURNED
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS fines (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    loan_id UUID REFERENCES loans(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    amount NUMERIC NOT NULL,
+    reason TEXT,
+    status TEXT DEFAULT 'UNPAID', -- PAID, UNPAID
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 10. ADVANCED RLS
+ALTER TABLE fees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE books ENABLE ROW LEVEL SECURITY;
+ALTER TABLE loans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fines ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Tenant isolation for fees" ON fees;
+CREATE POLICY "Tenant isolation for fees" ON fees USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Tenant isolation for transactions" ON transactions;
+CREATE POLICY "Tenant isolation for transactions" ON transactions USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Tenant isolation for books" ON books;
+CREATE POLICY "Tenant isolation for books" ON books USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Tenant isolation for loans" ON loans;
+CREATE POLICY "Tenant isolation for loans" ON loans USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
+
+DROP POLICY IF EXISTS "Tenant isolation for fines" ON fines;
+CREATE POLICY "Tenant isolation for fines" ON fines USING (tenant_id IN (SELECT tenant_id FROM profiles WHERE id = auth.uid()));
 
 -- 7. SEED DATA
 INSERT INTO tenants (id, name, domain, primary_color, region) VALUES

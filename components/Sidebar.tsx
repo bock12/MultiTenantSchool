@@ -20,20 +20,32 @@ import {
   LayoutGrid,
   Database,
   Award,
-  IdCard
+  IdCard,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Tenant, UserRole } from '../types';
 
 interface SidebarProps {
   isOpen: boolean;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   activeTenant: Tenant;
   onSwitchTenant: () => void;
   onLogout: () => void;
   role: UserRole;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant, onLogout, role }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  isCollapsed,
+  onToggleCollapse,
+  activeTenant,
+  onSwitchTenant,
+  onLogout,
+  role
+}) => {
   const location = useLocation();
 
   const getMenuItems = () => {
@@ -104,30 +116,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant,
   if (!isOpen) return null;
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 lg:relative w-72 bg-slate-900 text-slate-400 flex flex-col h-screen overflow-y-auto no-scrollbar shrink-0 border-r border-slate-800 transition-all duration-300">
-      <div className="p-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 rounded-xl shadow-lg" style={{ backgroundColor: activeTenant?.primaryColor || '#6366f1' }}>
+    <aside className={`fixed inset-y-0 left-0 z-40 lg:relative ${isCollapsed ? 'w-24' : 'w-72'} bg-slate-900 text-slate-400 flex flex-col h-screen overflow-y-auto no-scrollbar shrink-0 border-r border-slate-800 transition-all duration-300`}>
+      <div className={`p-8 ${isCollapsed ? 'px-4' : ''}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} mb-8`}>
+          <div className="p-2 rounded-xl shadow-lg shrink-0" style={{ backgroundColor: activeTenant?.primaryColor || '#6366f1' }}>
             <GraduationCap className="text-white" size={24} />
           </div>
-          <div>
-            <h1 className="text-white font-black text-xl tracking-tighter leading-none">EduNexus</h1>
-            <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-slate-500">
-              {role === UserRole.SUPERADMIN ? 'Infrastructure OS' : role === UserRole.STUDENT ? 'Student Portal' : 'Institutional OS'}
-            </p>
-          </div>
+          {!isCollapsed && (
+            <div className="animate-in fade-in duration-500">
+              <h1 className="text-white font-black text-xl tracking-tighter leading-none">EduNexus</h1>
+              <p className="text-[9px] uppercase tracking-[0.3em] font-black mt-1 text-slate-500">
+                {role === UserRole.SUPERADMIN ? 'Infrastructure OS' : role === UserRole.STUDENT ? 'Student Portal' : 'Institutional OS'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Branding/Switching Area */}
-        <div className="bg-slate-800/40 rounded-2xl p-4 border border-slate-700/50 mb-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-            {role === UserRole.SUPERADMIN ? 'System Context' : 'Active Institution'}
-          </p>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-bold text-white truncate pr-2">
-              {role === UserRole.SUPERADMIN ? 'Nexus Global Hub' : activeTenant?.name}
+        <div className={`bg-slate-800/40 rounded-2xl ${isCollapsed ? 'p-2' : 'p-4'} border border-slate-700/50 mb-4 transition-all`}>
+          {!isCollapsed && (
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 animate-in fade-in duration-300">
+              {role === UserRole.SUPERADMIN ? 'System Context' : 'Active Institution'}
             </p>
-            {role === UserRole.SUPERADMIN && (
+          )}
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+            {!isCollapsed ? (
+              <p className="text-sm font-bold text-white truncate pr-2 animate-in fade-in duration-300">
+                {role === UserRole.SUPERADMIN ? 'Nexus Global Hub' : activeTenant?.name}
+              </p>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-white shrink-0">
+                <LayoutGrid size={16} />
+              </div>
+            )}
+            {role === UserRole.SUPERADMIN && !isCollapsed && (
               <button onClick={onSwitchTenant} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors text-indigo-400" title="Switch Context">
                 <Repeat size={14} />
               </button>
@@ -137,7 +159,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant,
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
-        <p className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1">Command Center</p>
+        {!isCollapsed && (
+          <p className="px-4 py-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-1 animate-in fade-in duration-300">Command Center</p>
+        )}
         {menuItems.map((item) => {
           const Icon = item.icon;
           const path = role === UserRole.SUPERADMIN ? `/${item.id.toLowerCase()}` : `/${activeTenant?.id}/${item.id.toLowerCase()}`;
@@ -147,7 +171,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant,
             <Link
               key={item.id}
               to={path}
-              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive
+              title={isCollapsed ? item.label : ''}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive
                 ? 'text-white shadow-xl'
                 : 'hover:bg-slate-800 hover:text-white'
                 }`}
@@ -155,22 +180,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTenant, onSwitchTenant,
             >
               <div className="flex items-center gap-4">
                 <Icon size={20} className={isActive ? 'text-white' : 'group-hover:text-indigo-400 transition-colors'} />
-                <span className="font-bold text-sm tracking-tight">{item.label}</span>
+                {!isCollapsed && (
+                  <span className="font-bold text-sm tracking-tight animate-in slide-in-from-left-2 duration-300">{item.label}</span>
+                )}
               </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 mt-auto border-t border-slate-800/50 space-y-2">
-        <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 text-slate-400 hover:text-white transition-colors group">
+      <div className={`p-4 mt-auto border-t border-slate-800/50 space-y-2 ${isCollapsed ? 'items-center' : ''}`}>
+        <button onClick={onLogout} className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-4'} px-4 py-3 text-slate-400 hover:text-white transition-colors group`} title="Exit Session">
           <LogOut size={20} className="group-hover:text-rose-400" />
-          <span className="font-bold text-sm">Exit Session</span>
+          {!isCollapsed && <span className="font-bold text-sm">Exit Session</span>}
         </button>
-        <button className="w-full flex items-center gap-4 px-4 py-3 text-slate-400 hover:text-white transition-colors">
-          <Settings size={20} />
-          <span className="font-bold text-sm">Preferences</span>
-        </button>
+
+        <div className="hidden lg:block pt-2">
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-center p-3 bg-slate-800/50 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all border border-slate-700/30"
+          >
+            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
+        </div>
       </div>
     </aside>
   );

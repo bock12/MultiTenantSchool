@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { 
-  Book, 
-  Search, 
-  Library, 
-  CheckCircle2, 
-  Clock, 
-  ArrowRightLeft, 
+import {
+  Book,
+  Search,
+  Library,
+  CheckCircle2,
+  Clock,
+  ArrowRightLeft,
   Plus,
   Filter,
   User,
@@ -33,33 +33,45 @@ interface BookRecord {
   dueDate?: string;
 }
 
-const LibraryManagement: React.FC = () => {
+import { AdmissionStatus, AdmissionApplication, Student, Subject, Classroom, Staff, Assessment, SyllabusUnit, Tenant, AcademicStream, UserRole, Notification } from '../types';
+
+interface LibraryProps {
+  books: any[];
+  loans: any[];
+  fines: any[];
+  activeTenant: Tenant;
+}
+
+const LibraryManagement: React.FC<LibraryProps> = ({ books, loans, fines, activeTenant }) => {
   const [activeTab, setActiveTab] = useState<Tab>('INVENTORY');
   const [searchQuery, setSearchQuery] = useState('');
-  
-  const [inventory, setInventory] = useState<BookRecord[]>([
-    { id: '1', title: 'The Universe in a Nutshell', author: 'Stephen Hawking', category: 'Science', status: 'Available', isbn: '978-0553802024' },
-    { id: '2', title: 'To Kill a Mockingbird', author: 'Harper Lee', category: 'Literature', status: 'Borrowed', isbn: '978-0061120084', dueDate: '2024-06-15' },
-    { id: '3', title: 'Introduction to Algorithms', author: 'Thomas H. Cormen', category: 'STEM', status: 'Available', isbn: '978-0262033848' },
-    { id: '4', title: '1984', author: 'George Orwell', category: 'Literature', status: 'Borrowed', isbn: '978-0451524935', dueDate: '2024-06-20' },
-    { id: '5', title: 'Sapiens', author: 'Yuval Noah Harari', category: 'History', status: 'Available', isbn: '978-0062316097' },
-    { id: '6', title: 'Brief Answers to the Big Questions', author: 'Stephen Hawking', category: 'Science', status: 'Reserved', isbn: '978-1473695986' },
-  ]);
 
-  const activeLoans = [
-    { student: 'Alice Cooper', book: 'To Kill a Mockingbird', borrowedDate: '2024-05-20', dueDate: '2024-06-15', status: 'OVERDUE' },
-    { student: 'John Smith', book: '1984', borrowedDate: '2024-05-25', dueDate: '2024-06-25', status: 'ON_TIME' },
-    { student: 'Sarah Connor', book: 'Sapiens', borrowedDate: '2024-06-01', dueDate: '2024-06-21', status: 'ON_TIME' },
-  ];
+  const inventory: BookRecord[] = books.map(b => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    category: b.category || 'General',
+    status: b.status as any,
+    isbn: b.isbn || 'N/A'
+  }));
 
-  const fines = [
-    { student: 'Alice Cooper', reason: 'Late Return (7 days)', amount: 3.50, status: 'UNPAID' },
-    { student: 'Arthur Dent', reason: 'Lost Item: Hitchhiker\'s Guide', amount: 25.00, status: 'UNPAID' },
-    { student: 'Leo Fitz', reason: 'Late Return (2 days)', amount: 1.00, status: 'PAID' },
-  ];
+  const activeLoans = loans.map(l => ({
+    student: l.students?.name || 'Unknown Student',
+    book: l.books?.title || 'Unknown Book',
+    borrowedDate: l.borrowed_date,
+    dueDate: l.due_date,
+    status: l.status
+  }));
 
-  const filteredBooks = inventory.filter(b => 
-    b.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const fineRecords = fines.map(f => ({
+    student: f.students?.name || 'Unknown Student',
+    reason: f.reason,
+    amount: Number(f.amount),
+    status: f.status
+  }));
+
+  const filteredBooks = inventory.filter(b =>
+    b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     b.author.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -95,11 +107,10 @@ const LibraryManagement: React.FC = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              activeTab === tab 
-                ? 'bg-white text-indigo-600 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-900'
-            }`}
+            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === tab
+              ? 'bg-white text-indigo-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-900'
+              }`}
           >
             {tab}
           </button>
@@ -114,9 +125,9 @@ const LibraryManagement: React.FC = () => {
               <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search by Title, Author, or ISBN..." 
+                  <input
+                    type="text"
+                    placeholder="Search by Title, Author, or ISBN..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium"
@@ -146,11 +157,10 @@ const LibraryManagement: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-3">
-                        <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border ${
-                          book.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                          book.status === 'Borrowed' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
-                          'bg-indigo-50 text-indigo-600 border-indigo-100'
-                        }`}>
+                        <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border ${book.status === 'Available' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          book.status === 'Borrowed' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                            'bg-indigo-50 text-indigo-600 border-indigo-100'
+                          }`}>
                           {book.status}
                         </span>
                         <button className="text-slate-400 hover:text-indigo-600 transition-colors">
@@ -219,9 +229,8 @@ const LibraryManagement: React.FC = () => {
                     <td className="px-8 py-5 text-sm font-medium text-slate-600">{loan.book}</td>
                     <td className="px-8 py-5 text-sm font-bold text-slate-500">{loan.dueDate}</td>
                     <td className="px-8 py-5">
-                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${
-                        loan.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${loan.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+                        }`}>
                         {loan.status}
                       </span>
                     </td>
@@ -251,7 +260,7 @@ const LibraryManagement: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {fines.map((fine, i) => (
+                  {fineRecords.map((fine, i) => (
                     <tr key={i} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-5">
                         <span className="text-sm font-bold text-slate-900">{fine.student}</span>
@@ -311,7 +320,7 @@ const LibStat: React.FC<{ label: string, value: string, delta: string, icon: Rea
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
     <h4 className="text-3xl font-black text-slate-900 leading-none">{value}</h4>
     <p className="text-[10px] text-slate-500 font-bold mt-2 flex items-center gap-1">
-       {delta}
+      {delta}
     </p>
   </div>
 );
@@ -323,8 +332,8 @@ const CategoryUsage: React.FC<{ label: string, percentage: number, color: string
       <span className="text-[10px] font-black text-slate-900">{percentage}%</span>
     </div>
     <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-      <div 
-        className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`} 
+      <div
+        className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`}
         style={{ width: `${percentage}%` }}
       />
     </div>
